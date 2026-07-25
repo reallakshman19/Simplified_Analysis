@@ -1,0 +1,629 @@
+{
+  "schema": "tab-benchmark-suite/v1",
+  "appId": "simplified-analysis",
+  "navigationTabIds": [
+    "home",
+    "pcf",
+    "sketcher",
+    "3d-analysis",
+    "simpAnalysis",
+    "reports",
+    "benchmarks",
+    "settings",
+    "diagnostics"
+  ],
+  "tabs": [
+    {
+      "tabId": "home",
+      "status": "QUALIFIED",
+      "caseIds": [
+        "HOME-PCF-VIEWER-001",
+        "HOME-SELECTION-VISIBILITY-001",
+        "HOME-BROWSER-WORKFLOW-001"
+      ],
+      "passedCases": 3,
+      "failedCases": 0,
+      "notRunCases": 0
+    },
+    {
+      "tabId": "pcf",
+      "status": "QUALIFIED",
+      "caseIds": [
+        "PCF-ROUNDTRIP-001",
+        "PCF-MALFORMED-001",
+        "PCF-BROWSER-WORKFLOW-001"
+      ],
+      "passedCases": 3,
+      "failedCases": 0,
+      "notRunCases": 0
+    },
+    {
+      "tabId": "sketcher",
+      "status": "QUALIFIED",
+      "caseIds": [
+        "SKETCHER-TOPOLOGY-001",
+        "SKETCHER-BROWSER-WORKFLOW-001"
+      ],
+      "passedCases": 2,
+      "failedCases": 0,
+      "notRunCases": 0
+    },
+    {
+      "tabId": "3d-analysis",
+      "status": "QUALIFIED",
+      "caseIds": [
+        "GC3D-ANALYTICAL-SUITE-001",
+        "GC3D-BROWSER-WORKFLOW-001"
+      ],
+      "passedCases": 2,
+      "failedCases": 0,
+      "notRunCases": 0
+    },
+    {
+      "tabId": "simpAnalysis",
+      "status": "QUALIFIED",
+      "caseIds": [
+        "PIPE-SOLVER-ANALYTICAL-SUITE-001",
+        "PIPE-SOLVER-BROWSER-WORKFLOW-001"
+      ],
+      "passedCases": 2,
+      "failedCases": 0,
+      "notRunCases": 0
+    },
+    {
+      "tabId": "reports",
+      "status": "QUALIFIED",
+      "caseIds": [
+        "REPORT-DETERMINISM-001",
+        "REPORTS-BROWSER-WORKFLOW-001"
+      ],
+      "passedCases": 2,
+      "failedCases": 0,
+      "notRunCases": 0
+    },
+    {
+      "tabId": "benchmarks",
+      "status": "QUALIFIED",
+      "caseIds": [
+        "QA-REGISTRY-RECONCILIATION-001",
+        "QA-REAL-PROJECT-COMPATIBILITY-001",
+        "QA-BROWSER-WORKFLOW-001"
+      ],
+      "passedCases": 3,
+      "failedCases": 0,
+      "notRunCases": 0
+    },
+    {
+      "tabId": "settings",
+      "status": "QUALIFIED",
+      "caseIds": [
+        "SETTINGS-PROFILE-UNITS-001",
+        "SETTINGS-STALE-PERSISTENCE-001",
+        "SETTINGS-BROWSER-WORKFLOW-001"
+      ],
+      "passedCases": 3,
+      "failedCases": 0,
+      "notRunCases": 0
+    },
+    {
+      "tabId": "diagnostics",
+      "status": "QUALIFIED",
+      "caseIds": [
+        "DEBUG-TRACE-IMMUTABILITY-001",
+        "DEBUG-BROWSER-WORKFLOW-001"
+      ],
+      "passedCases": 2,
+      "failedCases": 0,
+      "notRunCases": 0
+    }
+  ],
+  "results": [
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "home",
+      "caseId": "HOME-PCF-VIEWER-001",
+      "category": "dataset-import-render-model",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-2deff555",
+      "expectedEvidence": {
+        "componentCount": 1,
+        "nodeCount": 3,
+        "segmentCount": 2,
+        "bounds": [
+          0,
+          50
+        ],
+        "finiteCoordinateCount": 9
+      },
+      "actualEvidence": {
+        "componentCount": 1,
+        "nodeCount": 3,
+        "segmentCount": 2,
+        "bounds": [
+          0,
+          50
+        ],
+        "finiteCoordinateCount": 9
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "home",
+      "caseId": "HOME-SELECTION-VISIBILITY-001",
+      "category": "selection-visibility-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-b9de9187",
+      "expectedEvidence": {
+        "rendersComponents": true,
+        "updatesSelection": true,
+        "supportsSectionBounds": true,
+        "forwardsSelectionToSketcher": true
+      },
+      "actualEvidence": {
+        "rendersComponents": true,
+        "updatesSelection": true,
+        "supportsSectionBounds": true,
+        "forwardsSelectionToSketcher": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "home",
+      "caseId": "HOME-BROWSER-WORKFLOW-001",
+      "category": "browser-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-743327b0",
+      "expectedEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "actualEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "pcf",
+      "caseId": "PCF-ROUNDTRIP-001",
+      "category": "parse-serialize-roundtrip",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-894c4968",
+      "expectedEvidence": {
+        "geometryComponentCount": 1,
+        "type": "PIPE",
+        "itemCodePreserved": true,
+        "endpointsPreserved": true,
+        "annotationCount": 1
+      },
+      "actualEvidence": {
+        "geometryComponentCount": 1,
+        "type": "PIPE",
+        "itemCodePreserved": true,
+        "endpointsPreserved": true,
+        "annotationCount": 1
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "pcf",
+      "caseId": "PCF-MALFORMED-001",
+      "category": "malformed-input-rejection",
+      "evidenceBasis": "[SIMULATED]",
+      "inputSemanticHash": "fnv1a32-6f21dc69",
+      "expectedEvidence": {
+        "componentCount": 1,
+        "componentsWithoutGeometry": 1,
+        "invalidCoordinateDiagnostic": true
+      },
+      "actualEvidence": {
+        "componentCount": 1,
+        "componentsWithoutGeometry": 1,
+        "invalidCoordinateDiagnostic": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "pcf",
+      "caseId": "PCF-BROWSER-WORKFLOW-001",
+      "category": "browser-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-53c68400",
+      "expectedEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "actualEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "sketcher",
+      "caseId": "SKETCHER-TOPOLOGY-001",
+      "category": "topology-drafting-handoff",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-252483e5",
+      "expectedEvidence": {
+        "checkCount": 4,
+        "passedChecks": 4,
+        "failedChecks": 0
+      },
+      "actualEvidence": {
+        "checkCount": 4,
+        "passedChecks": 4,
+        "failedChecks": 0
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "sketcher",
+      "caseId": "SKETCHER-BROWSER-WORKFLOW-001",
+      "category": "browser-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-1cc370bc",
+      "expectedEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "actualEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "3d-analysis",
+      "caseId": "GC3D-ANALYTICAL-SUITE-001",
+      "category": "guided-cantilever-reference",
+      "evidenceBasis": "ANALYTICAL",
+      "inputSemanticHash": "fnv1a32-99f41a2d",
+      "expectedEvidence": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0
+      },
+      "actualEvidence": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "3d-analysis",
+      "caseId": "GC3D-BROWSER-WORKFLOW-001",
+      "category": "browser-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-d107cb7d",
+      "expectedEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "actualEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "simpAnalysis",
+      "caseId": "PIPE-SOLVER-ANALYTICAL-SUITE-001",
+      "category": "2d-3d-piperack-routing",
+      "evidenceBasis": "ANALYTICAL",
+      "inputSemanticHash": "fnv1a32-f5ecb673",
+      "expectedEvidence": {
+        "total": 22,
+        "passed": 22,
+        "failed": 0
+      },
+      "actualEvidence": {
+        "total": 22,
+        "passed": 22,
+        "failed": 0
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "simpAnalysis",
+      "caseId": "PIPE-SOLVER-BROWSER-WORKFLOW-001",
+      "category": "browser-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-1b40c310",
+      "expectedEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "actualEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "reports",
+      "caseId": "REPORT-DETERMINISM-001",
+      "category": "deterministic-export-stale-result",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-aa9e5c6c",
+      "expectedEvidence": {
+        "engineeringCases": 7,
+        "engineeringPassed": 7,
+        "behaviorExitCode": 0
+      },
+      "actualEvidence": {
+        "engineeringCases": 7,
+        "engineeringPassed": 7,
+        "behaviorExitCode": 0
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "reports",
+      "caseId": "REPORTS-BROWSER-WORKFLOW-001",
+      "category": "browser-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-9f66fa12",
+      "expectedEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "actualEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "benchmarks",
+      "caseId": "QA-REGISTRY-RECONCILIATION-001",
+      "category": "registry-status-aggregation",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-5c0581a0",
+      "expectedEvidence": {
+        "navigationMatchesCatalog": true,
+        "orphanCaseCount": 0,
+        "missingTabCount": 0,
+        "upstreamTabFailures": 0
+      },
+      "actualEvidence": {
+        "navigationMatchesCatalog": true,
+        "orphanCaseCount": 0,
+        "missingTabCount": 0,
+        "upstreamTabFailures": 0
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "benchmarks",
+      "caseId": "QA-REAL-PROJECT-COMPATIBILITY-001",
+      "category": "real-project-schema-compatibility",
+      "evidenceBasis": "REAL_PROJECT",
+      "inputSemanticHash": "fnv1a32-4c933e39",
+      "expectedEvidence": {
+        "schema": "inputxml-managed-stage/v1",
+        "compatibleWithSimplifiedImport": false,
+        "transformed": false
+      },
+      "actualEvidence": {
+        "schema": "inputxml-managed-stage/v1",
+        "compatibleWithSimplifiedImport": false,
+        "transformed": false
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "benchmarks",
+      "caseId": "QA-BROWSER-WORKFLOW-001",
+      "category": "browser-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-1eff8117",
+      "expectedEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "actualEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "settings",
+      "caseId": "SETTINGS-PROFILE-UNITS-001",
+      "category": "profile-validation-unit-conversion",
+      "evidenceBasis": "ANALYTICAL",
+      "inputSemanticHash": "fnv1a32-2f79693c",
+      "expectedEvidence": {
+        "requiredProfileFields": 5,
+        "forceN": 4448.2216152605,
+        "stressMpa": 0.6894757293168
+      },
+      "actualEvidence": {
+        "requiredProfileFields": 5,
+        "forceN": 4448.2216152605,
+        "stressMpa": 0.6894757293168
+      },
+      "numericTolerances": {
+        "absolute": 1e-12
+      },
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "settings",
+      "caseId": "SETTINGS-STALE-PERSISTENCE-001",
+      "category": "persistence-staleness-contract",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-394b92f5",
+      "expectedEvidence": {
+        "editsMarkStale": true,
+        "settingsOnlyPersistence": true,
+        "staleBannerVisible": true
+      },
+      "actualEvidence": {
+        "editsMarkStale": true,
+        "settingsOnlyPersistence": true,
+        "staleBannerVisible": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "settings",
+      "caseId": "SETTINGS-BROWSER-WORKFLOW-001",
+      "category": "browser-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-f6d1556a",
+      "expectedEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "actualEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "diagnostics",
+      "caseId": "DEBUG-TRACE-IMMUTABILITY-001",
+      "category": "trace-order-non-mutating-inspection",
+      "evidenceBasis": "[SIMULATED]",
+      "inputSemanticHash": "fnv1a32-bee71038",
+      "expectedEvidence": {
+        "newestFirst": [
+          "second",
+          "first"
+        ],
+        "inputUnchanged": true,
+        "snapshotFrozen": true,
+        "stage1Registered": true,
+        "stage2Registered": true
+      },
+      "actualEvidence": {
+        "newestFirst": [
+          "second",
+          "first"
+        ],
+        "inputUnchanged": true,
+        "snapshotFrozen": true,
+        "stage1Registered": true,
+        "stage2Registered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    },
+    {
+      "schema": "tab-benchmark-result/v1",
+      "appId": "simplified-analysis",
+      "tabId": "diagnostics",
+      "caseId": "DEBUG-BROWSER-WORKFLOW-001",
+      "category": "browser-workflow",
+      "evidenceBasis": "REGRESSION",
+      "inputSemanticHash": "fnv1a32-e1b9a679",
+      "expectedEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "actualEvidence": {
+        "exitCode": 0,
+        "tabCovered": true
+      },
+      "numericTolerances": null,
+      "status": "PASSED",
+      "diagnostics": []
+    }
+  ],
+  "summary": {
+    "totalTabs": 9,
+    "qualified": 9,
+    "failed": 0,
+    "notRun": 0,
+    "totalCases": 22,
+    "passedCases": 22,
+    "failedCases": 0,
+    "notRunCases": 0
+  },
+  "semanticHash": "fnv1a32-26bd8ad8"
+}
