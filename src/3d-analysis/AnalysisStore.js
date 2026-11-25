@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { getSIFData } from './GC3DSIFEngine';
 import { getMaterialProperties } from '../utils/materialUtils';
 import { solveGC3D } from '../solvers/3d/solveGC3D.js';
+import { useAppStore } from '../store/appStore';
+import { publishActiveReportContext } from '../reporting/publishActiveReportContext.js';
+import { build3DSimplifiedModelContract, validate3DSimplifiedModelContract, build3DSimplifiedModelSummary, build3DSimplifiedPropertySummary } from './model/3dSimplifiedModelContract.js';
+import { solve3DSimplifiedSupportLoads } from './solvers/supportLoadSolver.js';
+import { create3DSimplifiedReport } from './reporting/create3DSimplifiedReport.js';
 
 function finiteOrNull(value) {
   const parsed = Number(value);
@@ -83,7 +88,7 @@ export const useAnalysisStore = create((set, get) => ({
     sifMinimum: 1.0,
   },
 
-  setNodes: (nodes) => set({ nodes }),
+  setNodes: (nodes) => { set({ nodes }); useAppStore.getState().markResultsStale(); },
   setSegments: (segments) => { set({ segments }); get().runAnalysis(); },
   setIncludeSIF: (val) => { set({ includeSIF: val }); get().runAnalysis(); },
   setActiveSolver: (solver) => {
@@ -321,6 +326,22 @@ export const useAnalysisStore = create((set, get) => ({
         criticalNode: res.criticalNode || null,
         overallResult: res.overallResult || 'FAIL',
         debugLog: [...get().debugLog, ...(res.debugLog || [])]
+    });
+    if (!segments.length || !Object.keys(nodes).length) {
+      useAppStore.getState().markResultsStale();
+      return;
+    }
+    const model = build3DSimplifiedModelContract({ nodes, segments, fittingData, params, source: '3d-analysis-store' });
+    const supportLoads = solve3DSimplifiedSupportLoads(model);
+    const validation = validate3DSimplifiedModelContract(model);
+    const report = create3DSimplifiedReport({
+      model, supportLoads, validation,
+      summary: build3DSimplifiedModelSummary(model), propertySummary: build3DSimplifiedPropertySummary(model),
+    });
+    publishActiveReportContext({
+      title: '3D Simplified Calculation', moduleId: '3d-guided-cantilever',
+      input: { ...payload, model },
+      result: { ...result, status: result.status === 'PASSED' && validation.status !== 'READY' ? 'NOT_QUALIFIED' : result.status, formulaIds: [...new Set([...(result.formulaIds || []), ...report.formulaIds])], report, supportLoads, warnings: [...(result.warnings || []), ...(supportLoads.warnings || [])], diagnostics: [...(result.diagnostics || []), ...report.diagnostics] },
     });
   },
 

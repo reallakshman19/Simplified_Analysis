@@ -7,6 +7,7 @@ const styles = {
 
 import { usePipeRackStore } from '../store/usePipeRackStore';
 import { solvePipeRack } from '../solver/PipeRackSolver';
+import { publishActiveReportContext } from '../../reporting/publishActiveReportContext.js';
 
 import { useExtendedStore } from '../../calc-extended/store/useExtendedStore';
 import { useAppStore } from '../../store/appStore';
@@ -16,12 +17,16 @@ export default function RackInputsDock() {
   const { globalSettings, lines, updateGlobalSetting, updateLine, addLine, removeLine, setResults, toggleSectionCreator } = usePipeRackStore();
   const methodology = useExtendedStore(state => state.methodology);
   const globalInputs = useExtendedStore(state => state.inputs);
-  const unitSystem = useAppStore(state => state.unitSystem);
+  const unitSystem = useAppStore(state => state.engineeringDefaults.projectUnitSystem === 'metric' ? 'Metric' : 'Imperial');
 
+  const engineeringDefaults = useAppStore(state => state.engineeringDefaults);
   const handleRun = () => {
-    const res = solvePipeRack(lines, globalSettings, methodology, globalInputs);
+    const inputs = { ...globalInputs, frictionFactor: engineeringDefaults.rackFrictionFactor };
+    const rackSettings = { ...globalSettings };
+    const res = solvePipeRack(lines, rackSettings, methodology, inputs);
     res.methodologyUsed = methodology === '2D_BUNDLE' ? 'SIMPLIFIED_RACK_METHOD' : 'KELLOGG_MIST';
     setResults(res);
+    publishActiveReportContext({ moduleId: 'piperack-expansion-loop', title: 'Pipe Rack Calculation Report', input: { lines, globalSettings: rackSettings, methodology, globalInputs: inputs }, result: res, settings: engineeringDefaults });
   };
 
   return (

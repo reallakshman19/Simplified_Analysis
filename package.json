@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/validate-tab-benchmark-registry.mjs",
+    "prebuild": "npm run check:workflows && node scripts/validate-tab-benchmark-registry.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -67,7 +67,8 @@
     "ci:v13": "npm run ci:v12 && npm run check:v13 && npm run check:v13:behavior && npm run check:qa && npm run check:benchmarks && npm run build",
     "ci:v14": "npm run ci:v13 && npm run check:v14 && npm run check:v14:behavior && npm run check:benchmarks && npm run build",
     "ci:v15": "npm run ci:v14 && npm run check:v15 && npm run check:v15:behavior && npm run check:benchmarks && npm run build",
-    "ci:v16": "npm run ci:v15 && npm run check:v16 && npm run check:v16:behavior && npm run check:qa && npm run check:benchmarks && npm run build"
+    "ci:v16": "npm run ci:v15 && npm run check:v16 && npm run check:v16:behavior && npm run check:qa && npm run check:benchmarks && npm run build",
+    "check:workflows": "node --test tests/functional-workflows.test.js"
   },
   "dependencies": {
     "@react-spring/three": "^10.0.3",

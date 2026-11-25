@@ -1,4 +1,6 @@
 import React from 'react';
+import { useExtendedStore } from '../calc-extended/store/useExtendedStore';
+import { BenchmarkFixturePanel } from '../benchmarking/BenchmarkFixturePanel';
 import { useAppStore } from '../store/appStore';
 import { getEngineeringIcon } from '../config/engineeringIcons';
 import { engineeringMockCatalog, mockGroups } from '../mocks/engineeringMockCatalog';
@@ -98,7 +100,7 @@ function MockCard({ item, latestStatus }) {
       <div style={{ color: '#e2e8f0', fontSize: 12 }}>Expected: {item.expectedSummary}</div>
       <div style={{ color: status === 'PASSED' ? '#22c55e' : '#fbbf24', fontSize: 12, fontWeight: 700 }}>Latest status: {status}</div>
       <div style={{ color: '#64748b', fontSize: 11, wordBreak: 'break-all' }}>{item.benchmarkFixture}</div>
-      <button data-testid={`load-benchmark-${item.id}`} style={buttonStyle} onClick={() => loadBenchmarkMock({ ...item, isBenchmarkMock: true, benchmarkInput: item.benchmarkInput })}>Load Benchmark Mock</button>
+      <button data-testid={`load-benchmark-${item.id}`} style={buttonStyle} onClick={() => { if (item.loadTargetSubTab) useExtendedStore.getState().setActiveSubTab(item.loadTargetSubTab); loadBenchmarkMock(item); }}>{item.launchMode === 'fixture' ? 'Run benchmark fixture' : 'Load Benchmark Mock'}</button>
     </div>
   );
 }
@@ -110,7 +112,7 @@ export function BenchmarksValidationTab() {
     <div data-testid="benchmarks-validation-tab" style={{ padding: 24, color: '#fff', overflow: 'auto', height: '100%' }}>
       <h2 style={{ marginTop: 0 }}>Benchmarks / Validation</h2>
       <p style={{ color: '#cbd5e1' }}>
-        Every visible tab is reconciled against deterministic evidence. Mock cards below remain engineering fixture launchers and are labelled separately from qualification.
+        The tab summary is recorded evidence, not a live qualification. Run the individual fixtures below to evaluate the current solver.
       </p>
       <QualificationOverview />
       {currentBenchmarkMock && (
@@ -118,6 +120,7 @@ export function BenchmarksValidationTab() {
           Current benchmark mock: <b>{currentBenchmarkMock.id}</b> from {currentBenchmarkMock.benchmarkFixture}
         </div>
       )}
+      {currentBenchmarkMock?.launchMode === 'fixture' && <BenchmarkFixturePanel mock={currentBenchmarkMock} />}
       {mockGroups.map((group) => {
         const items = engineeringMockCatalog.filter(group.match);
         return (

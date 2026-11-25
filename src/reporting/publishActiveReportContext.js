@@ -1,4 +1,5 @@
 import { useAppStore } from '../store/appStore.js';
+import { semanticHash } from '../benchmarking/tabBenchmarkContracts.js';
 
 function normalizeFormulaIds(result = {}) {
   if (Array.isArray(result.formulaIds)) return result.formulaIds;
@@ -30,8 +31,8 @@ export function buildActiveReportContext({
   const resolved = useAppStore.getState().getResolvedEngineeringSettings?.()
     || useAppStore.getState().resolvedEngineeringSettings;
 
-  const effectiveSettings = settings || resolved?.settings || {};
-  const effectiveSettingsHash = settingsHash || resolved?.settingsHash || null;
+  const effectiveSettings = settings || resolved?.settings || useAppStore.getState().engineeringDefaults;
+  const effectiveSettingsHash = settingsHash || resolved?.settingsHash || semanticHash(effectiveSettings);
   const formulaIds = normalizeFormulaIds(result);
 
   return {

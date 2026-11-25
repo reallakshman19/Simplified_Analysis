@@ -9,14 +9,9 @@ const rootDir = path.join(__dirname, '..');
 
 const checks = {
   phaseDocs: [
-    'AUDIT_CURRENT_BASELINE.md',
-    'PHASE_U3_ENGINEERING_DATA_UNIFICATION.md',
-    'PHASE_U4_SKETCHER_TOPOLOGY_FITTINGS.md',
-    'PHASE_U5_SOLVER_CERTIFICATION_CONTRACT.md',
-    'PHASE_U6_ACTIVE_CALCULATION_REPORTING.md',
-    'PHASE_U7_BROWSER_QA_DETERMINISTIC_CI.md',
-    'RELEASE_CANDIDATE_REGISTER.md',
-    'FINAL_PENDING_REGISTER.md',
+    'CORE_SPECIFICATION.md',
+    'docs/USER_WORKFLOW_GUIDE.md',
+    'docs/KNOWN_LIMITATIONS.md',
   ],
   scripts: [
     'scripts/u3-engineering-data-check.mjs',
@@ -70,7 +65,7 @@ function checkWarning(file, label) {
 
 console.log('# Release Candidate Certification Check\n');
 
-check('Phase Documentation', checks.phaseDocs);
+check('Current product documentation', checks.phaseDocs);
 check('Scripts', checks.scripts);
 check('Source Functions', checks.sourceFunctions);
 

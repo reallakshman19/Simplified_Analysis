@@ -13,7 +13,8 @@ import { exportJsonSnapshot } from '../../core/reporting/exportJsonSnapshot';
 
 export default function RackResultsGrid({ expanded, onToggle }) {
   const { results, lines, globalSettings, structuralSettings } = usePipeRackStore();
-  const unitSystem = useAppStore(state => state.unitSystem);
+  const resultsStale = useAppStore(state => state.resultsStale);
+  const unitSystem = useAppStore(state => state.engineeringDefaults.projectUnitSystem === 'metric' ? 'Metric' : 'Imperial');
 
   const buildReport = () => createCalculationReport({
     title: 'Pipe Rack Calculation Report',
@@ -25,12 +26,12 @@ export default function RackResultsGrid({ expanded, onToggle }) {
 
   const handleExportMarkdown = (event) => {
     event.stopPropagation();
-    if (results) exportMarkdownReport(buildReport(), 'pipe-rack-calculation-report.md');
+    if (results && !resultsStale) exportMarkdownReport(buildReport(), 'pipe-rack-calculation-report.md');
   };
 
   const handleExportJson = (event) => {
     event.stopPropagation();
-    if (results) exportJsonSnapshot(buildReport(), 'pipe-rack-calculation-report.json');
+    if (results && !resultsStale) exportJsonSnapshot(buildReport(), 'pipe-rack-calculation-report.json');
   };
 
   return (
@@ -38,8 +39,9 @@ export default function RackResultsGrid({ expanded, onToggle }) {
       <div style={styles.header} onClick={onToggle}>
         <span style={{ marginRight: '8px' }}>{expanded ? '▼' : '▶'}</span>
         Pipe Rack Analysis Data
+        {results && resultsStale && <span style={{color:'#fbbf24'}}>STALE — recalculate before export</span>}
         {results && <span style={{ marginLeft: '12px', color: '#10b981', fontSize: '12px' }}>— Method: {results.methodologyUsed}</span>}
-        {results && (
+        {results && !resultsStale && (
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
             <button onClick={handleExportMarkdown} style={{ background: '#334155', color: '#e2e8f0', border: '1px solid #475569', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Export MD</button>
             <button onClick={handleExportJson} style={{ background: '#334155', color: '#e2e8f0', border: '1px solid #475569', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Export JSON</button>
@@ -74,7 +76,7 @@ export default function RackResultsGrid({ expanded, onToggle }) {
                 <td style={{ padding: '8px' }}>{line.sizeNps}"</td>
                 <td style={{ padding: '8px' }}>{formatUnit(unitSystem, 'temp', line.tOperate, 1)}</td>
                 <td style={{ padding: '8px' }}>{formatUnit(unitSystem, 'shortLength', line.deltaIn, 2)}</td>
-                <td style={{ padding: '8px', color: '#a78bfa' }}>{line.loopOrder.toFixed(1)}</td>
+                <td style={{ padding: '8px', color: '#a78bfa' }}>{Number.isFinite(line.loopOrder) ? line.loopOrder.toFixed(1) : '—'}</td>
                 <td style={{ padding: '8px' }}>
                   {line.nestingPosition === 1 ? 'Outermost (1)' : line.nestingPosition === results.lines.length ? `Innermost (${line.nestingPosition})` : `Pos ${line.nestingPosition}`}
                 </td>

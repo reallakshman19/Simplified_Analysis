@@ -98,6 +98,7 @@ const requiredE2EFiles = [
     'e2e/u7-workflow-smoke.spec.js',
     'e2e/v16-pcfx-import-export.spec.js',
     'e2e/simplified-nine-tab-qualification.spec.js',
+    'e2e/functional-workflows.spec.js',
 ];
 
 let e2eFilesOk = true;
@@ -118,9 +119,10 @@ if (!e2eFilesOk) {
 }
 
 if (hasPlaywright) {
-    success &= runCheck('E2E Smoke Tests', 'npm run check:e2e -- e2e/smoke.spec.js e2e/u7-workflow-smoke.spec.js');
+    success &= runCheck('E2E Smoke Tests', 'npm run check:e2e -- e2e/smoke.spec.js e2e/u7-workflow-smoke.spec.js e2e/functional-workflows.spec.js e2e/benchmark-workflow.spec.js');
 } else {
-    console.log(`\n⚠️ Playwright not found, skipping E2E tests.`);
+    console.error('Playwright not installed; browser QA was NOT_RUN.');
+    success = false;
 }
 
 if (!success) {

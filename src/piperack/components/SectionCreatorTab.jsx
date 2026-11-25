@@ -19,7 +19,7 @@ const styles = {
 
 export default function SectionCreatorTab() {
     const { isSectionCreatorOpen, toggleSectionCreator, lines, globalSettings, structuralSettings, setSectionLayout, movePipeTier, addTier, logStream } = usePipeRackStore();
-    const unitSystem = useAppStore(s => s.unitSystem);
+    const unitSystem = useAppStore(s => s.engineeringDefaults.projectUnitSystem === 'metric' ? 'Metric' : 'Imperial');
     const [terminalOpen, setTerminalOpen] = useState(true);
     const [summaryOpen, setSummaryOpen] = useState(true);
     const [spacingOpen, setSpacingOpen] = useState(true);

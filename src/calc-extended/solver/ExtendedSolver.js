@@ -68,7 +68,8 @@ const getPipeProps = (size, schedule, warnings = []) => {
  * for converting mm/in → ft before calling this function.
  * bendingLegs output units: feet (for use in calcAxis with FT2_TO_IN2/FT3_TO_IN3 constants)
  */
-const parseGeometry = (nodes, segments, anchor1Id, anchor2Id) => {
+const parseGeometry = (nodes, segments, anchor1Id, anchor2Id, shortDropLimit_ft = 3.0) => {
+  if (!Number.isFinite(shortDropLimit_ft) || shortDropLimit_ft < 0) throw new Error('Invalid short-drop screening limit.');
   const n1 = nodes.find(n => n.id === anchor1Id);
   const n2 = nodes.find(n => n.id === anchor2Id);
   if (!n1 || !n2) throw new Error("Anchors not found in nodes");
@@ -90,7 +91,6 @@ const parseGeometry = (nodes, segments, anchor1Id, anchor2Id) => {
     const dz = Math.abs(s2.z - s1.z);
 
     // Rule: Filter out Z-axis drops <= 3 ft. Coordinates are feet, not inches.
-    const shortDropLimit_ft = 3.0;
     if (dz > 0 && dx === 0 && dy === 0 && dz <= shortDropLimit_ft) {
       shortDropsIgnored++;
       return; // Ignore this segment for flexibility
@@ -109,7 +109,7 @@ const parseGeometry = (nodes, segments, anchor1Id, anchor2Id) => {
     netDiff: { x: diffX, y: diffY, z: diffZ },
     bendingLegs: { x: bX, y: bY, z: bZ },
     shortDropsIgnored,
-    shortDropLimit_ft: 3.0,
+    shortDropLimit_ft,
     unitSystem: { coordinate: 'ft' }
   };
 };
@@ -160,7 +160,7 @@ export const runExtendedSolver = (payload) => {
     I_eff = (Math.PI / 64) * (Math.pow(OD, 4) - Math.pow(ID_eff, 4));
   }
 
-  const { netDiff, bendingLegs, shortDropsIgnored } = parseGeometry(nodes, segments, anchors.anchor1, anchors.anchor2);
+  const { netDiff, bendingLegs, shortDropsIgnored, shortDropLimit_ft } = parseGeometry(nodes, segments, anchors.anchor1, anchors.anchor2, payload.shortDropLimit_ft);
   formulaTrace.push({ name: 'Geometry decomposition', expression: 'netDiff = anchor2 - anchor1; bending legs by perpendicular runs', values: { netDiff, bendingLegs, shortDropsIgnored } });
 
   // Phase 1: Global Piping Reactions (Fluor vs 2D Bundle)
@@ -288,7 +288,7 @@ export const runExtendedSolver = (payload) => {
     formulaIds: ['KOVES_EQUIVALENT_LOAD'],
     unitSystem: { coordinate: 'ft', force: 'lbf', stress: 'psi', moment: 'in-lbf', length: 'in' },
     status: mistStatus === 'NOT_QUALIFIED' ? 'SCREENING_ONLY' : (flangeStatus === 'PASS' ? 'PASSED' : 'FAILED'),
-    meta: { schemaVersion: 'extended-calc-v1', shortDropsIgnored, shortDropLimit_ft: 3.0, unitSystem: { coordinate: 'ft' }, e, E, I_eff, OD, pipeSize, pipeSchedule: schedule }
+    meta: { schemaVersion: 'extended-calc-v1', shortDropsIgnored, shortDropLimit_ft, unitSystem: { coordinate: 'ft' }, e, E, I_eff, OD, pipeSize, pipeSchedule: schedule }
   };
 };
 

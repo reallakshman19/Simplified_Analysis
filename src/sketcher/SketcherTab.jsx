@@ -15,6 +15,7 @@ import { DynamicGrid } from './DynamicGrid';
 import { DraggableNode } from './DraggableNode';
 import { canonicalToSimplified2D } from '../core/geometry/adapters/canonicalToSimplified2D';
 import { useAnalysisStore } from '../3d-analysis';
+import { useExtendedStore } from '../calc-extended/store/useExtendedStore';
 import { Activity } from 'lucide-react';
 import TopologyDiagnosticsPanel from './TopologyDiagnosticsPanel';
 
@@ -76,11 +77,11 @@ const SketcherToolbar = () => {
         const canonical = exportToCanonicalGeometry();
         const newComps = exportToComponents();
         if (newComps.length > 0 || canonical.segments.length > 0) {
+            if (newComps.length > 0) setAppComponents(newComps);
             setSketcherGeometry(canonical);
             setActiveCanonicalGeometry(canonical);
-            if (newComps.length > 0) setAppComponents(newComps);
             alert("Successfully synchronized Sketcher graph to canonical geometry and 3D Viewer!");
-            setActiveTab('viewer');
+            setActiveTab('home');
         } else {
             alert("Graph is empty, nothing to sync.");
         }
@@ -96,7 +97,8 @@ const SketcherToolbar = () => {
         setSketcherGeometry(canonical);
         setActiveCanonicalGeometry(canonical);
         setSimplifiedGeometry(simplifiedPayload);
-        setAnalysisPayload(simplifiedPayload);
+        setAnalysisPayload({ ...simplifiedPayload, sourceGeometry: canonical, designTemperature_F: useSketchStore.getState().designTemperature });
+        useExtendedStore.getState().setActiveSubTab('2d');
         setActiveTab('simpAnalysis');
     };
 
@@ -109,6 +111,7 @@ const SketcherToolbar = () => {
             return;
         }
 
+        setSketcherGeometry(exportToCanonicalGeometry());
         useAnalysisStore.getState().importFromSketcher(nodes, segments, { designTemperature });
         setActiveTab('3d-analysis');
     };

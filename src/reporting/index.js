@@ -93,7 +93,7 @@ export function renderMarkdownCalculationSheet(report = {}) {
   lines.push('');
   lines.push(`Calculation status: ${report.calculationStatus || 'UNKNOWN'}`);
   lines.push(`Module: ${report.header?.module || 'unknown'}`);
-  lines.push(`Unit system: ${report.unitSystem || 'unknown'}`);
+  lines.push(`Unit system: ${typeof report.unitSystem === 'object' ? JSON.stringify(report.unitSystem) : report.unitSystem || 'unknown'}`);
   lines.push(`Method ID: ${report.methodId || 'UNKNOWN'}`);
   lines.push(`Formula ID(s): ${(report.formulaIds || []).join(', ')}`);
   lines.push(`Benchmark status: ${report.benchmarkStatus || 'NOT_RUN'}`);

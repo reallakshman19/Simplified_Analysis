@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useExtendedStore } from '../store/useExtendedStore';
 import { useAppStore } from '../../store/appStore';
 import DashboardView from './DashboardView';
@@ -59,29 +59,25 @@ const styles = {
 
 export function CalcExtendedTab() {
   const { activeSubTab, setActiveSubTab, methodology, setMethodology, importFromCanonicalGeometry } = useExtendedStore();
+  const currentBenchmarkMock = useAppStore(state => state.currentBenchmarkMock);
   const activeCanonicalGeometry = useAppStore(state => state.activeCanonicalGeometry);
 
   // Auto-import geometry from the Phase 2/3 canonical geometry store.
   // Calc Extended no longer reads non-existent appStore.nodes/appStore.segments.
   useEffect(() => {
-    if (activeCanonicalGeometry?.nodes?.length || activeCanonicalGeometry?.segments?.length) {
+    if (!currentBenchmarkMock && activeCanonicalGeometry !== useExtendedStore.getState().importedCanonicalGeometry) {
       importFromCanonicalGeometry(activeCanonicalGeometry, 'calc-extended-active-canonical');
     }
-  }, [importFromCanonicalGeometry, activeCanonicalGeometry]);
+  }, [importFromCanonicalGeometry, activeCanonicalGeometry, currentBenchmarkMock]);
 
-  // Force re-render of canvases after tab switch to avoid resize bugs
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-      setMounted(true);
-  }, [activeSubTab]);
 
   return (
     <div style={styles.container}>
       <div style={styles.subNav}>
         <div style={styles.subTab(activeSubTab === 'workspace')} onClick={() => setActiveSubTab('workspace')}>Workspace</div>
-        <div style={styles.subTab(activeSubTab === '2d')} onClick={() => setActiveSubTab('2d')}>2D Solver</div>
+        <div data-testid="pipe-solver-subtab-2d" style={styles.subTab(activeSubTab === '2d')} onClick={() => setActiveSubTab('2d')}>2D Solver</div>
         <div style={styles.subTab(activeSubTab === '3d')} onClick={() => setActiveSubTab('3d')}>3D Solver</div>
-        <div style={styles.subTab(activeSubTab === 'piperack')} onClick={() => setActiveSubTab('piperack')}>Pipe Rack Calc</div>
+        <div data-testid="pipe-solver-subtab-piperack" style={styles.subTab(activeSubTab === 'piperack')} onClick={() => setActiveSubTab('piperack')}>Pipe Rack Calc</div>
         <div style={styles.subTab(activeSubTab === 'config')} onClick={() => setActiveSubTab('config')}>Config & DB</div>
         <div style={styles.subTab(activeSubTab === 'debug')} onClick={() => setActiveSubTab('debug')}>Debug Steps</div>
 
@@ -95,24 +91,24 @@ export function CalcExtendedTab() {
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Render Canvas components with display: none when inactive instead of unmounting to prevent WebGL Context Loss */}
+        {/* Mount only the active workspace: no hidden WebGL contexts or calculation effects */}
         <div className="subtab-content" style={{ display: activeSubTab === 'workspace' ? 'flex' : 'none', flex: 1, flexDirection: 'column', height: '100%' }}>
-          <RvmWorkspaceTab />
+          {activeSubTab === 'workspace' && <RvmWorkspaceTab />}
         </div>
         <div className="subtab-content" style={{ display: activeSubTab === '2d' ? 'flex' : 'none', flex: 1, flexDirection: 'column', height: '100%' }}>
-          <Bundle2DSolverView />
+          {activeSubTab === '2d' && <Bundle2DSolverView />}
         </div>
         <div className="subtab-content" style={{ display: activeSubTab === '3d' ? 'flex' : 'none', flex: 1, flexDirection: 'column', height: '100%' }}>
-          <DashboardView />
+          {activeSubTab === '3d' && <DashboardView />}
         </div>
         <div className="subtab-content" style={{ display: activeSubTab === 'piperack' ? 'flex' : 'none', flex: 1, flexDirection: 'column', height: '100%' }}>
-          <PipeRackTab />
+          {activeSubTab === 'piperack' && <PipeRackTab />}
         </div>
         <div className="subtab-content" style={{ display: activeSubTab === 'config' ? 'flex' : 'none', flex: 1, flexDirection: 'column', height: '100%' }}>
-          <ConfigDatabaseTab />
+          {activeSubTab === 'config' && <ConfigDatabaseTab />}
         </div>
         <div className="subtab-content" style={{ display: activeSubTab === 'debug' ? 'flex' : 'none', flex: 1, flexDirection: 'column', height: '100%' }}>
-          <GlobalDebugTab />
+          {activeSubTab === 'debug' && <GlobalDebugTab />}
         </div>
       </div>
     </div>

@@ -33,7 +33,7 @@ export function TabQualificationBanner({ tabId }) {
         padding: '4px 12px',
       }}
     >
-      <span>Tab benchmark:</span>
+      <span>Recorded tab benchmark (not a live test):</span>
       <TabQualificationBadge compact={false} tabId={tabId} />
       <span>{caseCount} required evidence case{caseCount === 1 ? '' : 's'}</span>
       {tabId !== 'benchmarks' && (

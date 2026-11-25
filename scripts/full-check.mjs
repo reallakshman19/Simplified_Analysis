@@ -7,6 +7,7 @@ const checks = [
   ['npm', ['run', 'check:registry']],
   ['npm', ['run', 'check:benchmarks']],
   ['npm', ['run', 'check:tabs']],
+  ['npm', ['run', 'check:workflows']],
   ['npm', ['run', 'check:smoke']]
 ];
 

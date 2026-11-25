@@ -35,7 +35,9 @@ function Field({ name, value, onChange }) {
   return (
     <label style={{ display: 'grid', gap: 6, color: '#cbd5e1', fontSize: 13 }}>
       <span>{name}</span>
-      {isBoolean ? (
+      {name === "projectUnitSystem" ? (
+          <select data-testid={testId} value={value} onChange={e => onChange(name, e.target.value)} style={inputStyle}><option value="imperial">Imperial</option><option value="metric">Metric</option></select>
+        ) : isBoolean ? (
         <select data-testid={testId} value={String(value)} onChange={(e) => onChange(name, e.target.value === 'true')} style={inputStyle}>
           <option value="true">true</option>
           <option value="false">false</option>

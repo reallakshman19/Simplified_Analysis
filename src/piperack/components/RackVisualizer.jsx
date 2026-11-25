@@ -70,20 +70,20 @@ const GuideSymbol = ({ position, rotation = [0, 0, 0] }) => (
 const LoopMesh = ({ line, heatmapMode, useTierElevation }) => {
   const { W_ft, H_ft, G1_ft, G2_ft } = line.dimensions;
   const updateLineOverride = usePipeRackStore(state => state.updateLineOverride);
-  const { structuralSettings, lines } = usePipeRackStore(state => state);
-  const unitSystem = useAppStore(state => state.unitSystem);
+  const { structuralSettings, globalSettings, lines } = usePipeRackStore(state => state);
+  const unitSystem = useAppStore(state => state.engineeringDefaults.projectUnitSystem === 'metric' ? 'Metric' : 'Imperial');
 
   const storeLines = usePipeRackStore(state => state.lines);
   const sourceLine = storeLines.find(l => l.id === line.id);
 
   // Draw a U-Loop based on calculated W and H
   const pts = [
-    new THREE.Vector3(-100, 0, 0), // Anchor 1
+    new THREE.Vector3(-globalSettings.anchorDistanceFt / 2, 0, 0), // Anchor 1
     new THREE.Vector3(-W_ft/2, 0, 0), // Tangent 1
     new THREE.Vector3(-W_ft/2, 0, H_ft), // Top corner 1
     new THREE.Vector3(W_ft/2, 0, H_ft), // Top corner 2
     new THREE.Vector3(W_ft/2, 0, 0), // Tangent 2
-    new THREE.Vector3(100, 0, 0), // Anchor 2
+    new THREE.Vector3(globalSettings.anchorDistanceFt / 2, 0, 0), // Anchor 2
   ];
 
   // Adjust Y spacing so loops aren't exactly on top of each other
@@ -118,7 +118,7 @@ const LoopMesh = ({ line, heatmapMode, useTierElevation }) => {
   });
 
   // Dynamic color based on assigned color, overridden by Heatmap mode
-  let matColor = sourceLine?.color || (line.material.includes('Austenitic') ? '#fbbf24' : '#38bdf8');
+  let matColor = sourceLine?.color || (String(line.material || '').includes('Austenitic') ? '#fbbf24' : '#38bdf8');
 
   // Fake stress simulation heatmap for UI visualization
   if (heatmapMode === 'STRESS') {
@@ -185,8 +185,8 @@ export default function RackVisualizer() {
       {results && (
         <div style={styles.toolbar}>
           <button style={{ background: heatmapMode === 'MATERIAL' ? '#38bdf8' : '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }} onClick={() => setHeatmapMode('MATERIAL')}>Material View</button>
-          <button style={{ background: heatmapMode === 'STRESS' ? '#ef4444' : '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }} onClick={() => setHeatmapMode('STRESS')}>Stress Map</button>
-          <button style={{ background: heatmapMode === 'FORCE' ? '#8b5cf6' : '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }} onClick={() => setHeatmapMode('FORCE')}>Force Map</button>
+          <button style={{ background: heatmapMode === 'STRESS' ? '#ef4444' : '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }} onClick={() => setHeatmapMode('STRESS')}>Temperature/nesting preview</button>
+          <button style={{ background: heatmapMode === 'FORCE' ? '#8b5cf6' : '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }} onClick={() => setHeatmapMode('FORCE')}>Size preview</button>
           <button style={{ background: '#10b981', color: '#fff', border: '1px solid #059669', borderRadius: '4px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setUseTierElevation(!useTierElevation)}>
             ↻ Refresh plan view
           </button>

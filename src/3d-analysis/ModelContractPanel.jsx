@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useAnalysisStore } from './AnalysisStore';
-import { useAppStore } from '../store/appStore';
 import {
   build3DSimplifiedModelContract,
   build3DSimplifiedModelSummary,
@@ -41,9 +40,6 @@ export function ModelContractPanel() {
   const segments = useAnalysisStore((state) => state.segments);
   const fittingData = useAnalysisStore((state) => state.fittingData);
   const params = useAnalysisStore((state) => state.params);
-  const engineeringDefaults = useAppStore((state) => state.engineeringDefaults);
-  const setActiveReportContext = useAppStore((state) => state.setActiveReportContext);
-  const clearResultsStale = useAppStore((state) => state.clearResultsStale);
 
   const model = useMemo(
     () =>
@@ -78,28 +74,6 @@ export function ModelContractPanel() {
     () => create3DSimplifiedReportMarkdown(report),
     [report]
   );
-
-  useEffect(() => {
-    setActiveReportContext({
-      title: '3D Simplified Calculation',
-      moduleId: '3d-guided-cantilever',
-      methodId: report.methodIds[0] || 'GC_BASIC_12EI',
-      benchmarkStatus: 'NOT_RUN',
-      input: { model },
-      result: {
-        status: report.status,
-        methodId: report.methodIds[0] || 'GC_BASIC_12EI',
-        formulaIds: report.formulaIds,
-        unitSystem: 'imperial',
-        report,
-        supportLoads,
-      },
-      settings: engineeringDefaults,
-      diagnostics: report.diagnostics,
-      warnings: report.scopeLimitations,
-    });
-    clearResultsStale();
-  }, [clearResultsStale, engineeringDefaults, model, report, setActiveReportContext, supportLoads]);
 
   const handleDownloadMarkdown = () => {
     download3DSimplifiedReportText({

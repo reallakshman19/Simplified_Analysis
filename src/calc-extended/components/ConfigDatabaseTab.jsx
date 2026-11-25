@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useExtendedStore } from '../store/useExtendedStore';
+import { useAppStore } from '../../store/appStore';
+import { projectDisplayUnit } from '../utils/units';
 
 // Import JSON DBs
 import expansionCoeffs from '../db/expansion_coefficients.json';
@@ -13,7 +14,8 @@ const tdStyle = { padding: '8px', borderBottom: '1px solid #1e293b', fontSize: '
 const tableStyle = { width: '100%', borderCollapse: 'collapse', marginTop: '12px', background: '#0f172a', borderRadius: '8px', overflow: 'hidden' };
 
 export default function ConfigDatabaseTab() {
-  const { unitSystem, toggleUnitSystem } = useExtendedStore();
+  const unitSystem = useAppStore(state => projectDisplayUnit(state.engineeringDefaults.projectUnitSystem));
+  const toggleUnitSystem = unit => useAppStore.getState().setEngineeringDefault('projectUnitSystem', unit.toLowerCase());
   const [activeDb, setActiveDb] = useState('pipe_properties');
 
   return (

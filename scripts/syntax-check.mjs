@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
 const strict = process.argv.includes('--strict');
@@ -31,22 +32,10 @@ function walk(dir, files = []) {
   return files;
 }
 
-function lightweightModuleSyntaxCheck(code) {
-  // Dependency-free fallback used only when @babel/parser is unavailable.
-  // It removes import/export syntax so Node's Function parser can still catch
-  // braces, parentheses, string/template, and ordinary JS syntax errors.
-  const transformed = code
-    .replace(/^\s*import\s+[^;]+;?\s*$/gm, '')
-    .replace(/^\s*export\s+\{[^}]*\}\s+from\s+['\"][^'\"]+['\"];?\s*$/gm, '')
-    .replace(/^\s*export\s+\*\s+from\s+['\"][^'\"]+['\"];?\s*$/gm, '')
-    .replace(/^\s*export\s+\{[^}]*\};?\s*$/gm, '')
-    .replace(/\bexport\s+default\s+/g, '')
-    .replace(/\bexport\s+(?=(const|let|var|function|class)\b)/g, '');
-  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  // eslint-disable-next-line no-new-func
-  new AsyncFunction(transformed);
+function lightweightModuleSyntaxCheck(file) {
+  const check = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
+  if (check.status !== 0) throw new Error(check.stderr || 'Native syntax check failed');
 }
-
 
 function lightweightJsxSyntaxCheck(code, rel) {
   if (/^<<<<<<<|^=======|^>>>>>>>/m.test(code)) {
@@ -56,6 +45,7 @@ function lightweightJsxSyntaxCheck(code, rel) {
 }
 
 parse = await tryLoadBabelParser();
+if (strict && !parse) { console.error('Strict syntax check requires @babel/parser (install project dependencies).'); process.exit(1); }
 const files = scanRoots.flatMap((dir) => walk(path.join(root, dir))).sort();
 
 for (const file of files) {
@@ -84,7 +74,7 @@ for (const file of files) {
       lightweightJsxSyntaxCheck(code, rel);
       jsxFallbackChecked.push(rel);
     } else {
-      lightweightModuleSyntaxCheck(code);
+      lightweightModuleSyntaxCheck(file);
     }
   } catch (error) {
     failures.push(`${rel}: ${error.message}`);
