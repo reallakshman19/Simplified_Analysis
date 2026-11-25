@@ -1,0 +1,21 @@
+schema: AgentPrStatus.v1
+repository: reallakshman19/Simplified_Analysis
+pr_or_wip: PR1
+mission: Functional workflow recovery
+branch: fix/functional-workflows-20261125
+pr_head: 8b13f10bf9668602ce35480c3eeddeeee6fb55ef
+main_head_last_checked: ac0df8f6ac33daf2ba07b6bb04ffd8e6a35a2bf7
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+agent_state: BLOCKED_PENDING_AUTHORIZATION
+pr_recovery_state: HEALTHY
+handover_readiness: DEGRADED
+report_path: agents/PR1_workreport.md
+report_basis_head: 8b13f10bf9668602ce35480c3eeddeeee6fb55ef
+appendix_a_status: CURRENT
+grounding_epoch: GE-002
+current_stage: VALIDATE
+blocker: "Local package registry 403; CI Chromium install unsupported on Ubuntu 26.04; workflow edit approval pending"
+highest_risk: Build and actual browser workflow not yet verified
+exact_next_action: Pin CI runner only if owner authorizes, run and fix actual build/browser tests
+last_updated: 2026-11-25
