@@ -127,6 +127,8 @@ export function pcfToCanonicalGeometry(components, options = {}) {
       diameter: Number(component?.bore || start?.bore || end?.bore || 0) || undefined,
       material: component?.attributes?.MATERIAL || component?.attributes?.['ITEM-CODE'] || component?.attributes?.['COMPONENT-ATTRIBUTE3'],
       meta: {
+        ...structuredClone(component?.properties || {}),
+        rawPcfAttributes: structuredClone(component?.attributes || {}),
         sourceType: type,
         sourceIndex: index,
         ...meta,

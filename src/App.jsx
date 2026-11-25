@@ -27,14 +27,14 @@ function App() {
 
   const tabPanels = {
     home: <ErrorBoundary key="home"><Viewer3DTab /></ErrorBoundary>,
-    pcf: <DataTableTab />,
+    pcf: <ErrorBoundary key="pcf"><DataTableTab /></ErrorBoundary>,
     sketcher: <ErrorBoundary key="sketcher"><SketcherTab /></ErrorBoundary>,
     '3d-analysis': <ErrorBoundary key="3d-analysis"><AnalysisTab /></ErrorBoundary>,
     simpAnalysis: <ErrorBoundary key="simpAnalysis"><CalcExtendedTab /></ErrorBoundary>,
-    reports: <ReportsTab />,
-    benchmarks: <BenchmarksValidationTab />,
-    settings: <SettingsTab />,
-    diagnostics: <ConfigTab />,
+    reports: <ErrorBoundary key="reports"><ReportsTab /></ErrorBoundary>,
+    benchmarks: <ErrorBoundary key="benchmarks"><BenchmarksValidationTab /></ErrorBoundary>,
+    settings: <ErrorBoundary key="settings"><SettingsTab /></ErrorBoundary>,
+    diagnostics: <ErrorBoundary key="diagnostics"><ConfigTab /></ErrorBoundary>,
   };
 
   return (

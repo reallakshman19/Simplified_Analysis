@@ -8,6 +8,7 @@ import { serializePcf } from '../pcf/pcfSerializer';
 import { log } from '../utils/logger';
 import { mock5LegData } from '../mocks/mock5Leg';
 import { useSketchStore } from '../sketcher/SketcherStore';
+import { canonicalGeometryToSketcher } from '../core/geometry/adapters/sketcherToCanonicalGeometry.js';
 import { setClippingBounds } from '../utils/viewer3d';
 
 export const Viewer3DTab = () => {
@@ -270,8 +271,17 @@ export const Viewer3DTab = () => {
                 const targetComps = selectedIds.size > 0 
                   ? components.filter(c => selectedIds.has(c.id))
                   : components;
-                const params = useAppStore.getState().processParams || {};
-                useAnalysisStore.getState().importFromViewer(targetComps, params);
+                const app = useAppStore.getState();
+                // Viewer-generated PCF proxies are for display; retain the authoritative sketch model for calculation.
+                if (app.activeCanonicalGeometry?.source === 'sketcher') {
+                  const canonical = selectedIds.size ? app.getSelectedCanonicalGeometry() : app.activeCanonicalGeometry;
+                  if (!canonical?.segments?.length || canonical.valid === false) { alert('Select actual pipe segments from the sketch model, not display-only fittings.'); return; }
+                  const sketch = canonicalGeometryToSketcher(canonical);
+                  useAnalysisStore.getState().importFromSketcher(sketch.nodes, sketch.segments, { designTemperature: canonical.summary?.designTemperature_F });
+                } else {
+                  if (!targetComps.length) { alert('No valid components selected.'); return; }
+                  useAnalysisStore.getState().importFromViewer(targetComps, app.processParams || {});
+                }
                 useAppStore.getState().setActiveTab('3d-analysis');
               }}
               className="px-3 py-1 bg-blue-500 text-white text-[11px] rounded font-semibold shadow-sm hover:bg-blue-600 flex items-center gap-1"
@@ -289,10 +299,11 @@ export const Viewer3DTab = () => {
                     const canonical = appState.selectedIds.size > 0
                         ? appState.getSelectedCanonicalGeometry()
                         : (appState.activeCanonicalGeometry || appState.canonicalGeometry);
-                    if (canonical?.segments?.length) {
+                    if (canonical?.segments?.length && canonical.valid !== false) {
                         sketchStore.importFromCanonicalGeometry(canonical);
-                    } else if (appState.components.length > 0) {
-                        sketchStore.importFromComponents(appState.components);
+                    } else {
+                        alert('No valid canonical pipe geometry in the selected model.');
+                        return;
                     }
                     sketchStore.triggerAutoCenter();
                     appState.setActiveTab('sketcher');

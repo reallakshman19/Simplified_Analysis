@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { pcfToCanonicalGeometry } from '../core/geometry/adapters/pcfToCanonicalGeometry';
 import { DEFAULT_TAB_ID, isSimplifiedTabId } from '../config/uiTabs';
+import { selectCanonicalSegments } from '../core/geometry/adapters/selectCanonicalSegments.js';
 import { buildBenchmarkLoadState } from '../benchmarking/benchmarkLaunch.js';
 import { DEFAULT_ENGINEERING_SETTINGS } from '../data/engineeringDefaults/defaults.js';
 
@@ -121,8 +122,9 @@ export const useAppStore = create(persist((set, get) => ({
     return state.components.filter((component) => state.selectedIds.has(component.id));
   },
   getSelectedCanonicalGeometry: () => {
-    const selected = get().getSelectedComponents();
-    return buildCanonicalSafe(selected, 'pcf-selection');
+    const state = get();
+    if (state.activeCanonicalGeometry?.source === 'sketcher') return selectCanonicalSegments(state.activeCanonicalGeometry, state.selectedIds);
+    return buildCanonicalSafe(state.getSelectedComponents(), 'pcf-selection');
   },
 
   pcfText: '',

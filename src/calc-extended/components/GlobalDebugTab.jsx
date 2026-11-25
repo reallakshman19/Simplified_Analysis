@@ -17,7 +17,6 @@ const styles = {
 export default function GlobalDebugTab() {
   const { results: extResults, nodes, segments, methodology } = useExtendedStore();
   const { results: rackResults } = usePipeRackStore();
-  const unitSystem = useAppStore(state => state.unitSystem);
 
   return (
     <div style={styles.container}>

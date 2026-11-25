@@ -640,12 +640,12 @@ export const useSketchStore = create((set, get) => ({
   importFromCanonicalGeometry: (geometry) => {
       get().saveSnapshot();
       const { nodes, segments, warnings } = canonicalGeometryToSketcher(geometry);
-      set({ nodes, segments, importWarnings: warnings || [] });
+      set({ nodes, segments, importWarnings: warnings || [], ...(Number.isFinite(geometry?.summary?.designTemperature_F) ? { designTemperature: geometry.summary.designTemperature_F } : {}) });
   },
 
   exportToCanonicalGeometry: () => {
-      const { nodes, segments, workingPlane } = get();
-      return sketcherToCanonicalGeometry(nodes, segments, { source: 'sketcher', unit: 'mm', plane: workingPlane });
+      const { nodes, segments, workingPlane, designTemperature } = get();
+      return sketcherToCanonicalGeometry(nodes, segments, { source: 'sketcher', unit: 'mm', plane: workingPlane, designTemperature_F: designTemperature });
   },
 
   exportToComponents: () => {

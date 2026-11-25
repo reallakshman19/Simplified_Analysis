@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { canonicalGeometryToSketcher, sketcherToCanonicalGeometry } from '../src/core/geometry/adapters/sketcherToCanonicalGeometry.js';
+import { selectCanonicalSegments } from '../src/core/geometry/adapters/selectCanonicalSegments.js';
+import { pcfToCanonicalGeometry } from '../src/core/geometry/adapters/pcfToCanonicalGeometry.js';
 import { prepareImported2D, importedAnchorsReady } from '../src/calc-extended/solver/imported2DWorkflow.js';
 import { runExtendedSolver } from '../src/calc-extended/solver/ExtendedSolver.js';
 import { engineeringMockCatalog, validateMockLoadActions } from '../src/mocks/engineeringMockCatalog.js';
@@ -110,4 +112,19 @@ test('stale reports disclose stale status without substituting other inputs', ()
   assert.equal(payload.status,'SCREENING_ONLY');
   assert.deepEqual(payload.input.nodes,['A','B','C']);
   assert.ok(payload.warnings.some(item=>item.code==='STALE_RESULTS'));
+});
+
+test('viewer selection uses exact sketch segment and keeps its properties, never display-only proxy geometry', () => {
+  const selection = selectCanonicalSegments(route, new Set(['S1']));
+  assert.deepEqual(selection.segments.map(s => s.id), ['S1']);
+  assert.deepEqual(selection.nodes.map(n => n.id), ['A','B']);
+  assert.equal(selection.segments[0].meta.fluidDensity_kg_m3, 997);
+  assert.equal(selectCanonicalSegments(route,new Set(['display-elbow'])).valid,false);
+});
+
+test('PCF canonical conversion retains source raw attributes without inferring property values', () => {
+  const component = { id:'P1', type:'PIPE', bore:100, points:[{x:0,y:0,z:0},{x:1000,y:0,z:0}], attributes:{'ITEM-CODE':'P-001', 'CUSTOM-PROP':'raw'} };
+  const canonical = pcfToCanonicalGeometry([component]);
+  assert.deepEqual(canonical.segments[0].meta.rawPcfAttributes, component.attributes);
+  assert.equal(canonicalGeometryToSketcher(canonical).segments[0].properties.rawPcfAttributes['CUSTOM-PROP'],'raw');
 });

@@ -1,3 +1,4 @@
+import { useAppStore } from '../store/appStore';
 import React, { useState } from 'react';
 import { useAnalysisStore } from './AnalysisStore';
 import { displayValue } from './GC3DUnitConverter';
@@ -93,7 +94,7 @@ export const DebugTable = () => {
   const legResults = useAnalysisStore(s => s.legResults);
   const segments = useAnalysisStore(s => s.segments);
   const setSelectedNode = useAnalysisStore(s => s.setSelectedNode);
-  const unitSystem = useAnalysisStore(s => s.unitSystem);
+  const unitSystem = useAppStore(s => s.engineeringDefaults.projectUnitSystem === 'metric' ? 'si' : 'imperial');
   const selectedNodeId = useAnalysisStore(s => s.selectedNodeId);
 
   const getLabel = (base, quantity) => {
