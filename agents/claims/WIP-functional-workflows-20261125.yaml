@@ -1,0 +1,9 @@
+schema: AgentClaim.v1
+pr_or_wip: WIP-functional-workflows-20261125
+claim_state: ACTIVE
+files:
+  exact: [package.json]
+  prefixes: [src/, scripts/, e2e/, tests/]
+authority_domains: [geometry-transfer, settings, navigation, solver-input-and-result-publication, functional-verification]
+claim_modes: [COORDINATED]
+last_verified_head: ac0df8f6ac33daf2ba07b6bb04ffd8e6a35a2bf7
