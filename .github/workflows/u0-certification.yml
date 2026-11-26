@@ -10,7 +10,7 @@ on:
 jobs:
   u0-certification:
     name: U0 baseline checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
@@ -28,6 +28,8 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: '0'
 
       - name: Run full repository checks
         run: npm run check:full
