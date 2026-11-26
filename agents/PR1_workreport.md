@@ -2,32 +2,33 @@
 
 ## CURRENT RECOVERY STATE
 ```
-HANDOVER_READINESS: DEGRADED (browser/build not run)
+HANDOVER_READINESS: READY
 PR_RECOVERY_STATE: HEALTHY / RECOVERABLE
-TAKEOVER_AUTHORITY: WRITE_ALLOWED for scoped integration; workflow edits pending explicit owner authorization
+TAKEOVER_AUTHORITY: Scoped implementation complete
 REPOSITORY: reallakshman19/Simplified_Analysis
 SOURCE_TASK: owner asked to fix defects identified in repository review
 PR_OR_WIP: PR1
 BRANCH: fix/functional-workflows-20261125
-PR_HEAD_OBSERVED: 8b13f10bf9668602ce35480c3eeddeeee6fb55ef
-REPORT_BASIS_HEAD: 8b13f10bf9668602ce35480c3eeddeeee6fb55ef
+PR_HEAD_OBSERVED: 3b5c079f7ebc1fbb1a4abdeb7db9db8d30148a01
+REPORT_BASIS_HEAD: 3b5c079f7ebc1fbb1a4abdeb7db9db8d30148a01
 MAIN_HEAD_LAST_CHECKED: ac0df8f6ac33daf2ba07b6bb04ffd8e6a35a2bf7
 MERGE_BASE: ac0df8f6ac33daf2ba07b6bb04ffd8e6a35a2bf7
 REPORT_SYNC: CURRENT
-APPENDIX_A_STATUS: CURRENT
-GROUNDING_EPOCH: GE-002
-CURRENT_STAGE: VALIDATE
-LAST_COMPLETED_STAGE: IMPLEMENT (targeted production repairs)
-CURRENT_BLOCKER: npm registry HTTP 403 in local environment; GitHub Actions Playwright install unsupported on ubuntu-latest/26.04 (preexisting).
-HIGHEST_RISK: UI/build unverified; unqualified existing approximation/material data remains.
-EXACT_NEXT_ACTION: Obtain explicit workflow edit authorization; pin CI runner to ubuntu-24.04 and Node 22, rerun actual build/browser tests and fix observed failures; do not promote authority/merge without owner.
+APPENDIX_A_STATUS: NOT_REQUIRED
+GROUNDING_EPOCH: GE-003
+CURRENT_STAGE: HANDOVER
+LAST_COMPLETED_STAGE: VALIDATE
+CURRENT_BLOCKER: None for PR review
+HIGHEST_RISK: Existing engineering screening limitations and browser scenarios outside CI coverage.
+EXACT_NEXT_ACTION: Review PR #1 and the two passing certification runs.
 ```
 
 ## Handover in 60 seconds
-The branch implements real geometry property preservation, selection from the authoritative sketch graph (not Viewer proxies), 2D imported-route selection and calculation with explicit anchors and uniform pipe-spec confirmation, current benchmark routing/dispatch, project display units and stale result invalidation, actual result publication from 2D/3D/Rack, and more meaningful verification. Screenings remain screening only. The new browser tests are committed but have not executed: CI fails during Chromium install, before build/tests. This is an infrastructure failure, not a passing or failing app test. No workflow files edited, no merge.
+The branch implements real geometry property preservation, selection from the authoritative sketch graph (not Viewer proxies), 2D imported-route selection and calculation with explicit anchors and uniform pipe-spec confirmation, current benchmark routing/dispatch, project display units and stale result invalidation, actual result publication from 2D/3D/Rack, and more meaningful verification. Both certification workflows now pass after pinning Ubuntu 24.04 and Node 22 and using the same Playwright browser directory for installation and tests. CI built the production bundle and ran seven browser tests, including the PCF-to-2D-to-Reports and live Pipe Rack benchmark flows.
 
 ## Ground truth and coordination
-PR #1 open, draft, mergeable, main at ac0df8f6ac33daf2ba07b6bb04ffd8e6a35a2bf7, implementation head above. No other live open PRs at last query. No prior master index or AGENTS.md on base. New work report/status/claim replace unique WIP files. Coherent claim over workflow integration and verification; no conflicting workstreams. Prior runs [45578856257](https://github.com/reallakshman19/Simplified_Analysis/actions/runs/45578856257) and [45578856260](https://github.com/reallakshman19/Simplified_Analysis/actions/runs/45578856260) stopped at Playwright install; preceding baseline logs show "Playwright does not support chromium on ubuntu26.04-x64". Latest runs [45579430566](https://github.com/reallakshman19/Simplified_Analysis/actions/runs/45579430566) and [45579430600](https://github.com/reallakshman19/Simplified_Analysis/actions/runs/45579430600) initially failure/in-progress. Re-fetch live checks after metadata commit.
+
+PR #1 is open and targets main at ac0df8f6ac33daf2ba07b6bb04ffd8e6a35a2bf7. The implementation was verified at 3b5c079f7ebc1fbb1a4abdeb7db9db8d30148a01. No other open PRs or reviews were present during reconciliation. The 56 changed paths match the ledger. The [U0 Baseline Certification](https://github.com/reallakshman19/Simplified_Analysis/actions/runs/45736674687) and [Release Candidate Certification](https://github.com/reallakshman19/Simplified_Analysis/actions/runs/45736674685) both passed. Earlier attempts failed while installing Playwright on Ubuntu 26.04.
 
 ## Scope and acceptance
 - Actual PCF/sketch data must reach solver, retaining IDs, coordinates, properties, endpoint anchors and units.
@@ -41,20 +42,20 @@ PR #1 open, draft, mergeable, main at ac0df8f6ac33daf2ba07b6bb04ffd8e6a35a2bf7, 
 ## Implementation / active items
 | ID | State | Evidence / remaining |
 |---|---|---|
-| ISS-01 2D transfer | Implemented, local behavior PASS | prepareImported2D conversion exercised by existing runExtendedSolver with 10 ft × 20 ft route; confirm browser |
+| ISS-01 2D transfer | Implemented, local behavior PASS | prepareImported2D conversion exercised by existing runExtendedSolver with 10 ft × 20 ft route. The browser test verifies both dimensions in the published report. |
 | ISS-02 properties / Viewer | Implemented, local PASS | roundtrip raw/nested metadata and exact selection regression, retain canonical sketch through display proxies |
-| ISS-03 benchmark navigation | Implemented, local PASS | valid plans (37), 37 actual fixture comparisons; E2E pending |
-| ISS-04 settings and stale state | Partially implemented | unit display and cutoff/friction integration, input mutations stale; other unsupported legacy settings/data authorities remain; browser pending |
-| ISS-05 reports | Implemented integration, local payload checks PASS | actual 2D/GC3D/Rack publication; panel mount no false publication; browser pending |
-| ISS-06 release check | Implemented | source/script/current docs check passes 19/19, browser QA no longer silently skips; workflow infrastructure still blocked |
+| ISS-03 benchmark navigation | Implemented, local PASS | valid plans (37), 37 actual fixture comparisons. Browser QA verifies the Pipe Rack and cantilever fixtures. |
+| ISS-04 settings and stale state | Partially implemented | unit display and cutoff/friction integration, input mutations stale; the Settings browser test covers stale-result invalidation. Some legacy settings and data sources remain outside this repair. |
+| ISS-05 reports | Implemented integration, local payload checks PASS | the 2D and fixture report paths passed browser QA. 3D publication was inspected in source. |
+| ISS-06 release check | Implemented | source/script/current docs check passes 19/19, both CI workflows complete successfully on Ubuntu 24.04 |
 | RISK-01 engineering authority | OPEN | existing fallback tables, approximate GC3D and support loads remain; no numerical requalification beyond existing fixture suite |
-| RISK-02 CI / production startup | OPEN | user authorization required for workflow edit; local npm denied and CI unsupported OS. |
+| RISK-02 CI / production startup | RESOLVED for PR validation | Ubuntu 24.04 and Node 22 build and browser checks passed in both workflows. |
 | DEBT-01 | OPEN | additional end-to-end scenarios and authoritative material/reference settings migration outside tested repair; do not claim current full release certification. |
 
 ## Technical diagnosis and invariants
-Observed: base numeric benchmarks passed while invalid routing and property loss were reproduced. Hypothesis confirmed via source and actual pure modules: source-to-destination contract mismatch, not arithmetic failure. Falsifier: imported route IDs/legs differ from source or selected fixture result fails independent expected fields. Validate real workflow in browser next. Preserve engine unit basis (canonical mm, Extended ft/Imperial, display conversion only), equations and original numerical fixtures/tolerance. Short-drop cutoff default remains 3 ft, explicit setting can configure screening and report records it. Do not promote a default/fallback to verified engineering authority.
+Observed: base numeric benchmarks passed while invalid routing and property loss were reproduced. Hypothesis confirmed via source and actual pure modules: source-to-destination contract mismatch, not arithmetic failure. Falsifier: imported route IDs/legs differ from source or selected fixture result fails independent expected fields. The browser regression confirms the actual PCF geometry reaches the 2D solver and report. Preserve engine unit basis (canonical mm, Extended ft/Imperial, display conversion only), equations and original numerical fixtures/tolerance. Short-drop cutoff default remains 3 ft, explicit setting can configure screening and report records it. Do not promote a default/fallback to verified engineering authority.
 
-## Validation ledger (implementation head 8b13f10bf9668602ce35480c3eeddeeee6fb55ef)
+## Validation ledger (implementation head 3b5c079f7ebc1fbb1a4abdeb7db9db8d30148a01)
 | Check | Status | Observation / oracle | Evidence / limitations |
 |---|---|---|---|
 | Baseline engineering benchmarks | PASS | LOCAL_EXECUTION / ANALYTICAL or fixture regression per fixture | base: 37/37 zero rounded max error |
@@ -67,11 +68,14 @@ Observed: base numeric benchmarks passed while invalid routing and property loss
 | U3/U4/U5/U6 behavior | PASS | LOCAL_EXECUTION / implementation-coupled | 21+14+13+4 checks pass |
 | Native JS syntax | PASS | LOCAL_EXECUTION / parser | syntax-check fallback: 318 scanned, 52 JSX structural checks only, no Babel parse; E2E spec JS syntax checked separately |
 | npm ci local | FAIL (infrastructure) | LOCAL_EXECUTION / none | registry 403 for zustand; offline cache miss; PREEXISTING environment |
-| Strict JSX, production Vite build, Playwright browser flows | NOT_RUN | NOT_OBSERVED | dependencies unavailable locally, CI Chromium install fails; no product pass claimed |
+| Strict JSX, production Vite build, Playwright browser flows | PASS | REMOTE_EXECUTION / strict parsing, Vite compilation, and browser assertions | Both GitHub Actions jobs passed. Seven Chromium cases ran per job using the dev server. The production build passed separately. |
 | Independent engineering requalification | NOT_RUN | NOT_OBSERVED | unchanged equations/fixtures, not requalified for design |
 
 ## Changed-file ledger
-49 production/test/artifact paths relative to main; all intended. Group: app/navigation/geometry/solver/store/report integration, actual QA fixture dispatch and tests, release/QA runners, refreshed engineering benchmark result (fixture title only). No workflow changes.
+52 production, CI, test, and generated result paths relative to main. These cover application integration, fixture execution, validation, and the runner compatibility fix.
+- `.github/workflows/deploy.yml`
+- `.github/workflows/release-candidate.yml`
+- `.github/workflows/u0-certification.yml`
 - `benchmarks/fixtures/ui-proof/UI-MOCK-LOAD-001.json`
 - `e2e/benchmark-workflow.spec.js`
 - `e2e/functional-workflows.spec.js`
@@ -124,15 +128,10 @@ Observed: base numeric benchmarks passed while invalid routing and property loss
 
 Additional recovery: agents/MASTER_INDEX.md, agents/PR1_workreport.md, agents/status/PR1.yaml, agents/claims/PR1.yaml. WIP migration removes initial branch-only WIP files; relative to main only new PR records remain.
 
-## Review / continuation
-No merge requested, keep draft until real build and browser results. Current claim ACTIVE. Owner question sent about pinning workflows; do not infer permission from elapsed time. If authorized, update runner OS and supported Node, run CI until build/browser outcome, diagnose observed runtime errors. If no authorization, hand over as blocked on this explicit decision. Do not call recorded tab qualification current.
+## Review and continuation
 
-## Appendix A (for successor; qualification pending, no takeover occurred)
-A1: trace imported PCF L-route through Viewer, Sketcher, prepareImported2D and actual solver/report; predict exact IDs/leg units and demonstrate falsifier.
-A2: identify browser installation failure on current HEAD from live run logs and distinguish skipped product validation; propose minimal authorized workflow change.
-A3: trace canonical property authority and selection through Viewer proxy; explain invariants about no inferred wall/property values and engine unit conversion.
-A4: execute independent geometry test and actual fixture comparisons; identify any changed oracle, and separately demonstrate a real Playwright flow on current HEAD.
-A5: after observing CI build/browser result, propose next smallest patch, exact path and independent check; protect existing solver equations and claims.
+The verified scope is ready for review. The PR has passing production builds, the configured browser suite, and the existing engineering fixtures. The browser suite does not cover all 3D, PCFX, or other repository scenarios. Independent engineering validation remains outside this repair. Deployment is pending merge and the Pages workflow.
 
 ## History
-GE-001 baseline main; PR allocated from WIP. GE-002 current implementation head and code ledger reconciled. Baseline defects reproduced and two implementation checkpoints pushed (8b13f10bf9668602ce35480c3eeddeeee6fb55ef). No other agent takeover.
+
+The initial review reproduced that independent numerical benchmarks passed despite workflow integration bugs. The first implementation repaired the UI-to-solver paths and added focused checks. After the owner approved workflow edits on 2026-11-26, the runner change restored Chromium installation and both CI workflows passed.

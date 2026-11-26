@@ -1,8 +1,11 @@
 schema: AgentClaim.v1
 pr_or_wip: PR1
-claim_state: ACTIVE
+claim_state: REVIEW
 files:
   exact:
+    - .github/workflows/deploy.yml
+    - .github/workflows/release-candidate.yml
+    - .github/workflows/u0-certification.yml
     - benchmarks/fixtures/ui-proof/UI-MOCK-LOAD-001.json
     - e2e/benchmark-workflow.spec.js
     - e2e/functional-workflows.spec.js
@@ -55,4 +58,4 @@ files:
   prefixes: []
 authority_domains: [geometry-transfer, settings, navigation, solver-input-and-result-publication, functional-verification]
 claim_modes: [COORDINATED]
-last_verified_head: 8b13f10bf9668602ce35480c3eeddeeee6fb55ef
+last_verified_head: 3b5c079f7ebc1fbb1a4abdeb7db9db8d30148a01
