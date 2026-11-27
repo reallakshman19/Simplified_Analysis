@@ -10,11 +10,11 @@ import { serializePcf } from './pcfSerializer.js';
 
 export const importPcf = (rawText) => {
   const { components, diagnostics: parseDiagnostics, summary: parseSummary } = parsePcfWithDiagnostics(rawText);
-  let geometry = pcfToCanonicalGeometry(components, { source: 'pcf', unit: 'mm' });
+  const geometry = pcfToCanonicalGeometry(components, { source: 'pcf', unit: 'mm' });
 
   const validation = validateCanonicalGeometry(geometry);
   geometry.diagnostics = [...(geometry.diagnostics || []), ...validation.diagnostics];
-  geometry.valid = validation.ok;
+  geometry.valid = validation.ok && !parseDiagnostics.some(({ severity }) => severity === 'error');
 
   const lossReport = [];
   const unsupportedComponents = components.filter(c => !c.points?.length && !c.centrePoint && !c.coOrds);
@@ -57,7 +57,8 @@ export const importPcf = (rawText) => {
         imported,
         warnings,
         lossReport,
-        importConfidenceScore: importScore
+        importConfidenceScore: importScore,
+        sourceUnits: parseSummary.sourceUnits,
     }
   };
 };

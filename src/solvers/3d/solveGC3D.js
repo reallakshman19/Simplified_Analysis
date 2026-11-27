@@ -12,6 +12,7 @@ function gc3dContract({ inputs, results, status = 'PASSED', diagnostics = [], wa
     inputs,
     results,
     status,
+    engineeringLevel: 'SCREENING',
     diagnostics,
     warnings,
     formulas: formulaTrace,
@@ -23,7 +24,18 @@ function gc3dContract({ inputs, results, status = 'PASSED', diagnostics = [], wa
 function isUnsupportedBranchGeometry(nodes, segments) {
   const nodeValues = nodes ? Object.values(nodes) : [];
   return nodeValues.some((node) => ['tee', 'branch', 'olet'].includes(String(node.type || '').toLowerCase())) ||
-    (segments || []).some((seg) => ['TEE', 'BRANCH', 'OLET'].includes(String(seg.compType || '').toUpperCase()));
+    (Array.isArray(segments) && segments.some((seg) => ['TEE', 'BRANCH', 'OLET'].includes(String(seg?.compType || '').toUpperCase())));
+}
+
+/** Resolve an inch-based hollow pipe section, or return null for invalid dimensions. */
+function readPipeSection(segment) {
+  const [lengthIn, odIn, wallIn] = [segment?.length_in, segment?.od_in, segment?.wt_in].map(
+    (value) => typeof value === 'number' || typeof value === 'string' ? Number(value) : NaN,
+  );
+  if (![lengthIn, odIn, wallIn].every(Number.isFinite) || lengthIn <= 0 || wallIn <= 0 || 2 * wallIn >= odIn) return null;
+  const { I, Z } = sectionProperties(odIn, wallIn);
+  if (![I, Z].every((value) => Number.isFinite(value) && value > 0)) return null;
+  return { lengthIn, odIn, I, Z };
 }
 
 const makeLog = (debugLog) => (step, msg) => {
@@ -65,6 +77,11 @@ export function solveGC3D(payload) {
     'Thermal expansion is primary load'
   ];
   const log = makeLog(debugLog);
+  const blockCalculation = () => gc3dContract({
+    inputs: payload,
+    results: { legResults: [], nodeResults: [], criticalNode: null, overallResult: 'NOT_QUALIFIED', maxRatio: null, debugLog },
+    status: 'NOT_QUALIFIED', diagnostics, warnings, formulaTrace, assumptions,
+  });
 
   log(0, 'Starting deterministic GC3D guided-cantilever analysis.');
 
@@ -90,10 +107,10 @@ export function solveGC3D(payload) {
   const Sc = Number.parseFloat(params?.Sc_psi);
   const Sh = Number.parseFloat(params?.Sh_psi);
 
-  if ([E, alpha, deltaT, fFactor, Sc, Sh].some((value) => Number.isNaN(value))) {
-    warnings.push('Critical GC3D parameters contain NaN.');
+  if (![E, alpha, deltaT, fFactor, Sc, Sh].every(Number.isFinite)) {
+    warnings.push('Critical GC3D parameters contain non-finite values.');
     diagnostics.push({ severity: 'ERROR', message: 'Missing material or temperature properties.'});
-    log(1, 'Validation failed: Critical parameters are NaN.');
+    log(1, 'Validation failed: Critical parameters are non-finite.');
     return gc3dContract({
       inputs: payload,
       results: { legResults: [], nodeResults: [], criticalNode: null, overallResult: 'FAIL', maxRatio: null, debugLog },
@@ -105,18 +122,29 @@ export function solveGC3D(payload) {
     });
   }
 
+  const pipeSections = segments.map(readPipeSection);
+  for (const [index, section] of pipeSections.entries()) {
+    if (section) continue;
+    const segment = segments[index];
+    const missingDimensions = segment?.od_in == null || segment?.wt_in == null;
+    const segmentLabel = `Segment ${segment?.id ?? index + 1}`;
+    const message = missingDimensions
+      ? `${segmentLabel} is missing an outside diameter or wall thickness. Enter the project dimensions in Segment Properties.`
+      : `${segmentLabel} requires a positive finite length and a wall thickness between zero and half its outside diameter.`;
+    const code = missingDimensions ? 'GC3D_PIPE_SECTION_MISSING' : 'GC3D_INVALID_PIPE_SECTION';
+    diagnostics.push({ severity: 'ERROR', code, message, data: { segmentId: segment?.id, length_in: segment?.length_in, od_in: segment?.od_in, wt_in: segment?.wt_in } });
+    warnings.push(message);
+    log(1, message);
+  }
+  if (diagnostics.length) return blockCalculation();
+
   const SA = allowableStress(fFactor, Sc, Sh);
   formulaTrace.push({ name: 'Allowable expansion stress range', expression: 'SA = f(1.25Sc + 0.25Sh)', values: { f: fFactor, Sc_psi: Sc, Sh_psi: Sh, SA_psi: SA } });
   log(1, `Validated parameters. E=${E}, alpha=${alpha}, dT=${deltaT}, SA=${SA}`);
 
   const totalRuns = { X: 0, Y: 0, Z: 0 };
-  segments.forEach((seg) => {
-    const len = Number.parseFloat(seg.length_in);
-    if (!Number.isNaN(len)) {
-      if (seg.axis === 'X') totalRuns.X += len;
-      if (seg.axis === 'Y') totalRuns.Y += len;
-      if (seg.axis === 'Z') totalRuns.Z += len;
-    }
+  segments.forEach((seg, index) => {
+    if (Object.hasOwn(totalRuns, seg.axis)) totalRuns[seg.axis] += pipeSections[index].lengthIn;
   });
 
   const deltas = {
@@ -128,18 +156,8 @@ export function solveGC3D(payload) {
   log(4, `Thermal displacements (in): dX=${deltas.X.toFixed(4)}, dY=${deltas.Y.toFixed(4)}, dZ=${deltas.Z.toFixed(4)}`);
 
   const legResults = [];
-  segments.forEach((seg) => {
-    const L_in = Number.parseFloat(seg.length_in);
-    const D_o = Number.parseFloat(seg.od_in);
-    const t_n = Number.parseFloat(seg.wt_in);
-
-    if (Number.isNaN(L_in) || Number.isNaN(D_o) || Number.isNaN(t_n) || L_in <= 0) {
-      warnings.push(`Segment ${seg.id} has invalid dimensions.`);
-      legResults.push({ legId: seg.id, axis: seg.axis, L_in, F_lbf: 0, M_inlbf: 0, Sb_psi: 0, error: 'Invalid Dimensions' });
-      return;
-    }
-
-    const { I, Z } = sectionProperties(D_o, t_n);
+  segments.forEach((seg, index) => {
+    const { lengthIn: L_in, odIn: D_o, I, Z } = pipeSections[index];
     const data = fittingData[seg.id] || { k: 1.0, i_i: 1.0, R_e: 0 };
     const k = includeSIF ? Number.parseFloat(data.k || 1.0) : 1.0;
     const i_i = includeSIF ? Number.parseFloat(data.i_i || 1.0) : 1.0;
@@ -165,9 +183,16 @@ export function solveGC3D(payload) {
     });
 
     const Sb_combined = combineStressAtNode(Sb_components);
+    if (![totalF, totalM, Sb_combined].every(Number.isFinite)) {
+      const message = `Segment ${seg.id} produced non-finite force, moment, or stress. Check section, material, and fitting inputs.`;
+      diagnostics.push({ severity: 'ERROR', code: 'GC3D_NONFINITE_LEG_RESULT', message, data: { segmentId: seg.id } });
+      log(5, message);
+      return;
+    }
     legResults.push({ legId: seg.id, axis: seg.axis, L_in, F_lbf: totalF, M_inlbf: totalM, Sb_psi: Sb_combined, k, i_i, R_e });
     log(5, `Leg ${seg.id}: F=${totalF.toFixed(0)}lbf, M=${totalM.toFixed(0)}in-lbf, Sb_combined=${Sb_combined.toFixed(0)}psi`);
   });
+  if (diagnostics.length) return blockCalculation();
 
   const nodeResults = [];
   let critical = null;
@@ -275,9 +300,9 @@ export function solveGC3D(payload) {
   }
 
   formulaTrace.push({ name: 'Node stress combination', expression: 'Snode = sqrt(sum(Sb_i^2))', values: { criticalNode: critical, maxRatio } });
-  log(7, `RESULT: ${overallResult}. Critical Node: ${critical} (ratio=${maxRatio.toFixed(3)})`);
+  log(7, `Stress check: ${overallResult}. Critical Node: ${critical} (ratio=${maxRatio.toFixed(3)})`);
 
-  const resultStatus = overallResult === 'PASS' ? 'PASSED' : overallResult;
+  const resultStatus = overallResult === 'PASS' ? 'PASSED' : overallResult === 'FAIL' ? 'FAILED' : overallResult;
   return {
     moduleId: "3d-guided-cantilever",
     methodId: "GC_BASIC_12EI",

@@ -158,11 +158,12 @@ const Schematic2D = ({ shape, inputs, onUpdate }) => {
     );
   }
   if (shape === 'U-Loop') {
-    const totalW = Math.max(inputs.L + inputs.W, 1);
+    if (inputs.W >= inputs.L) return null;
+    const totalW = Math.max(inputs.L, 1);
     const totalH = Math.max(inputs.H, 1);
     const maxDim = Math.max(totalW, totalH);
     const scale = 80 / maxDim;
-    const l1 = (inputs.L / 2) * scale;
+    const l1 = ((inputs.L - inputs.W) / 2) * scale;
     const w = inputs.W * scale;
     const h = totalH * scale;
 
@@ -320,14 +321,15 @@ export default function Bundle2DSolverView() {
       ];
       selectedAnchors.anchor2 = 'n4';
     } else if (shape === 'U-Loop') {
-      const halfL = engineGeom.L / 2;
+      if (engineGeom.W >= engineGeom.L) return setError('Loop width must be smaller than the anchor distance.');
+      const straightLeg = (engineGeom.L - engineGeom.W) / 2; // Split the remaining span in feet evenly.
       nodes = [
         { id: 'n1', x: 0, y: 0, z: 0 },
-        { id: 'n2', x: halfL, y: 0, z: 0 },
-        { id: 'n3', x: halfL, y: engineGeom.H, z: 0 },
-        { id: 'n4', x: halfL + engineGeom.W, y: engineGeom.H, z: 0 },
-        { id: 'n5', x: halfL + engineGeom.W, y: 0, z: 0 },
-        { id: 'n6', x: engineGeom.L + engineGeom.W, y: 0, z: 0 } // To ensure net distance is L (assuming W absorbs)
+        { id: 'n2', x: straightLeg, y: 0, z: 0 },
+        { id: 'n3', x: straightLeg, y: engineGeom.H, z: 0 },
+        { id: 'n4', x: straightLeg + engineGeom.W, y: engineGeom.H, z: 0 },
+        { id: 'n5', x: straightLeg + engineGeom.W, y: 0, z: 0 },
+        { id: 'n6', x: engineGeom.L, y: 0, z: 0 }
       ];
       segments = [
         { id: 's1', startNodeId: 'n1', endNodeId: 'n2' },
@@ -437,7 +439,12 @@ export default function Bundle2DSolverView() {
                    <span>Temp ({getUnitLabel(unitSystem, 'temp')}):</span>
                    <input type="number" style={styles.input} value={unitSystem === 'Metric' ? ImperialToMetric.F_to_C(imported && Number.isFinite(analysisPayload.designTemperature_F) ? analysisPayload.designTemperature_F : globalInputs.tOperate) : imported && Number.isFinite(analysisPayload.designTemperature_F) ? analysisPayload.designTemperature_F : globalInputs.tOperate} disabled={imported && Number.isFinite(analysisPayload.designTemperature_F)} onChange={e => useExtendedStore.getState().updateInput('tOperate', unitSystem === 'Metric' ? MetricToImperial.C_to_F(Number(e.target.value)) : Number(e.target.value))} />
                  </div>
-                {imported && <label><input data-testid="imported-2d-confirm-spec" type="checkbox" checked={specConfirmed} onChange={e => setSpecConfirmed(e.target.checked)} /> Confirm this uniform pipe specification applies to the imported route.</label>}
+                {imported && <label><input data-testid="imported-2d-confirm-spec" type="checkbox" checked={specConfirmed} onChange={e => {
+                  setSpecConfirmed(e.target.checked);
+                  if (e.target.checked) return;
+                  setResults(null);
+                  markResultsStale();
+                }} /> Confirm this uniform pipe specification applies to the imported route.</label>}
               </div>}
               {error && <p role="alert">{error}</p>}
 

@@ -237,7 +237,7 @@ export default function DashboardView() {
               {resultsExpanded ? '▼' : '▶'} Stress Engine Results
             </div>
             <div style={{ color: '#94a3b8', fontSize: '12px' }}>
-              Status: <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>[{calculationStatus}]</span>
+              Status: <span data-testid="extended-result-status" style={{ color: '#38bdf8', fontWeight: 'bold' }}>[{results?.status ?? calculationStatus}]</span>
               {results && <span style={{ marginLeft: '12px', color: '#10b981' }}>— Method: {results.meta.methodologyUsed}</span>}
             </div>
           </div>
@@ -284,9 +284,10 @@ export default function DashboardView() {
                   <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#a78bfa', marginBottom: '8px' }}>2. VESSEL SHELL (MIST)</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
                     <div>K-Factor: <span style={{ color: '#e2e8f0' }}>{results.mist?.K ? results.mist.K.toFixed(0) : '-'}</span></div>
-                    <div>Ratio: <span style={{ color: '#e2e8f0' }}>{results.mist?.interactionRatio ? results.mist.interactionRatio.toFixed(3) : '-'}</span></div>
+                    <div>Ratio: <span style={{ color: '#e2e8f0' }}>{results.mist?.interactionRatio?.toFixed(3) ?? '—'}</span></div>
                     <div style={{ gridColumn: 'span 2' }}>STATUS: <span style={styles.statusBadge(results.mist?.status === 'PASS')}>{results.mist?.status || 'N/A'}</span></div>
                   </div>
+                  {results.mist?.diagnostic && <p style={{ color: '#fbbf24', fontSize: '12px' }}>{results.mist.diagnostic}</p>}
                 </div>
 
                 <div style={{ background: '#020617', padding: '12px', borderRadius: '8px', border: '1px solid #1e293b' }}>

@@ -15,6 +15,7 @@ export default function RackResultsGrid({ expanded, onToggle }) {
   const { results, lines, globalSettings, structuralSettings } = usePipeRackStore();
   const resultsStale = useAppStore(state => state.resultsStale);
   const unitSystem = useAppStore(state => state.engineeringDefaults.projectUnitSystem === 'metric' ? 'Metric' : 'Imperial');
+  const blockingDiagnostics = results?.diagnostics?.filter(({ severity }) => severity === 'ERROR') ?? [];
 
   const buildReport = () => createCalculationReport({
     title: 'Pipe Rack Calculation Report',
@@ -40,6 +41,7 @@ export default function RackResultsGrid({ expanded, onToggle }) {
         <span style={{ marginRight: '8px' }}>{expanded ? '▼' : '▶'}</span>
         Pipe Rack Analysis Data
         {results && resultsStale && <span style={{color:'#fbbf24'}}>STALE — recalculate before export</span>}
+        {results && <span data-testid="pipe-rack-result-status" style={{ marginLeft: '12px' }}>{results.status}</span>}
         {results && <span style={{ marginLeft: '12px', color: '#10b981', fontSize: '12px' }}>— Method: {results.methodologyUsed}</span>}
         {results && !resultsStale && (
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
@@ -51,8 +53,13 @@ export default function RackResultsGrid({ expanded, onToggle }) {
 
       <div style={{ flex: 1, overflowY: 'auto', display: expanded ? 'block' : 'none' }}>
         {!results && <div style={{color: '#64748b'}}>Awaiting loop calculation...</div>}
+        {blockingDiagnostics.length > 0 && (
+          <div role="alert" style={{ color: '#fca5a5', paddingBottom: '8px' }}>
+            {blockingDiagnostics.map(({ code, message }, index) => <div key={code + '-' + index}>{message}</div>)}
+          </div>
+        )}
 
-        {results && (
+        {results?.lines.length > 0 && (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: '#1e293b', color: '#94a3b8', textAlign: 'left' }}>

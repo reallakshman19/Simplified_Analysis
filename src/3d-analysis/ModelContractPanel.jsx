@@ -40,6 +40,10 @@ export function ModelContractPanel() {
   const segments = useAnalysisStore((state) => state.segments);
   const fittingData = useAnalysisStore((state) => state.fittingData);
   const params = useAnalysisStore((state) => state.params);
+  const gc3dStatus = useAnalysisStore((state) => state.overallResult);
+  const gc3dDiagnostics = useAnalysisStore((state) => state.solverDiagnostics);
+  const toggleSegmentSelection = useAnalysisStore((state) => state.toggleSegmentSelection);
+  const missingSection = gc3dDiagnostics.find(({ code }) => code === 'GC3D_PIPE_SECTION_MISSING');
 
   const model = useMemo(
     () =>
@@ -66,8 +70,10 @@ export function ModelContractPanel() {
         summary,
         propertySummary,
         supportLoads,
+        gc3dStatus,
+        gc3dDiagnostics,
       }),
-    [model, validation, summary, propertySummary, supportLoads]
+    [model, validation, summary, propertySummary, supportLoads, gc3dStatus, gc3dDiagnostics]
   );
 
   const reportMarkdown = useMemo(
@@ -102,10 +108,19 @@ export function ModelContractPanel() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <strong style={{ color: '#e0f2fe' }}>Model Contract</strong>
 
+        <span data-testid="3d-simplified-gc3d-status" style={badgeStyle}>GC3D: {report.gc3dStatus}</span>
         <span data-testid="3d-simplified-model-validation-status" style={badgeStyle}>
           {validation.status}
         </span>
       </div>
+      {missingSection && (
+        <div style={{ color: '#fde68a', margin: '8px 0' }}>
+          <p role="alert">Pipe dimensions are missing. Enter the project outside diameter and wall thickness in Segment Properties.</p>
+          <button type="button" style={badgeStyle} onClick={() => toggleSegmentSelection(missingSection.data.segmentId, false)}>
+            Edit dimensions for {missingSection.data.segmentId}
+          </button>
+        </div>
+      )}
 
       <div
         data-testid="3d-simplified-imported-model-summary"
@@ -315,6 +330,7 @@ export function ModelContractPanel() {
               schemaVersion: report.schemaVersion,
               reportId: report.reportId,
               status: report.status,
+              gc3dStatus: report.gc3dStatus,
               methodIds: report.methodIds,
               formulaIds: report.formulaIds,
               supportLoadSummary: report.supportLoadSummary,

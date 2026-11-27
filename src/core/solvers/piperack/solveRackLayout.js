@@ -1,4 +1,6 @@
 import { estimateFlangeRadiusIn, getRackMaterialProps, getRackPipeProps, numeric } from './dbUtils.js';
+import { DEFAULT_ENGINEERING_SETTINGS } from '../../../data/engineeringDefaults/defaults.js';
+import { readFiniteNumber } from '../readFiniteNumber.js';
 
 const createFutureSlot = (tier, gapWidthMm) => ({
   id: `FUTURE_${tier}`,
@@ -15,10 +17,30 @@ const getSmartTier = (line, numTiers) => {
   return Math.max(1, Math.min(numTiers, Number(line.tier ?? tier) || tier));
 };
 
+/** Compute centerline spacing in millimeters for two processed rack lines. */
+export function calculateRackPipeSpacing(previous, current, clearanceMm, bowingMultiplier) {
+  const physicalGap = (numeric(previous.OD_in, 0) + numeric(current.OD_in, 0)) * 25.4 / 2 +
+    numeric(previous.insulationThk, 0) + numeric(current.insulationThk, 0);
+  const previousFlange = numeric(previous.flgRad_in, 0) * 25.4;
+  const currentFlange = numeric(current.flgRad_in, 0) * 25.4;
+  const flangeAllowance = previous.stagger && current.stagger
+    ? Math.max(previousFlange, currentFlange) : previousFlange + currentFlange;
+  const bowing = Math.max(numeric(previous.delta_in, 0), numeric(current.delta_in, 0)) * 25.4 * bowingMultiplier;
+  const guideWidth = (numeric(previous.guide_mm, 50) + numeric(current.guide_mm, 50)) / 2;
+  const bracketAllowanceMm = 25;
+  const standardGap = Math.max(clearanceMm, guideWidth) + bracketAllowanceMm;
+  return { physicalGap, flangeAllowance, bowing, standardGap, spacing: physicalGap + flangeAllowance + bowing + standardGap };
+}
+
+/** Lay out rack lines using structural settings and the project clearance in millimeters. */
 export function solveRackLayout(lines = [], globalSettings = {}, structSettings = {}) {
   const runLengthFt = numeric(globalSettings.anchorDistanceFt, 200);
   const numTiers = Math.max(1, Math.min(8, parseInt(structSettings.numTiers || 3, 10)));
   const futureSpacePct = Math.max(0, numeric(structSettings.futureSpacePct, 20));
+  const clearanceMm = readFiniteNumber(structSettings.rackSpacingMargin === undefined
+    ? DEFAULT_ENGINEERING_SETTINGS.rackSpacingMargin : structSettings.rackSpacingMargin);
+  if (clearanceMm == null || clearanceMm < 0) throw new RangeError('Rack spacing margin must be a finite, non-negative distance in millimeters.');
+  const bowingMultiplier = numeric(structSettings.bowingMultiplier, 0.15);
   const warnings = [];
   const logs = ['[SOLVER] Initializing canonical pipe rack layout solver.'];
 
@@ -61,7 +83,7 @@ export function solveRackLayout(lines = [], globalSettings = {}, structSettings 
     if (combined.length > 0 && futureSpacePct > 0) {
       let occupied = numeric(structSettings.beamWidth_mm, 300) + numeric(structSettings.gussetGap_mm, 100) * 2;
       combined.forEach((line) => {
-        occupied += (numeric(line.OD_in, 0) * 25.4) + numeric(line.insulationThk, 0) * 2 + numeric(line.flgRad_in, 0) * 25.4 * 2 + 75;
+        occupied += (numeric(line.OD_in, 0) * 25.4) + numeric(line.insulationThk, 0) * 2 + numeric(line.flgRad_in, 0) * 25.4 * 2 + clearanceMm;
       });
       combined.splice(Math.floor(combined.length / 2), 0, createFutureSlot(tier, occupied * (futureSpacePct / 100)));
     }
@@ -86,7 +108,6 @@ export function solveRackLayout(lines = [], globalSettings = {}, structSettings 
       }
 
       const insMm = numeric(line.insulationThk, 0);
-      const odMm = numeric(line.OD_in, 0) * 25.4;
       const flgRadMm = numeric(line.flgRad_in, 0) * 25.4;
       if (idx === 0) {
         currentX += insMm + flgRadMm;
@@ -96,21 +117,7 @@ export function solveRackLayout(lines = [], globalSettings = {}, structSettings 
         while (prevIdx >= 0 && tierGroup[prevIdx].isFutureSlot) prevIdx -= 1;
         const prev = prevIdx >= 0 ? tierGroup[prevIdx] : null;
         if (prev) {
-          const prevIns = numeric(prev.insulationThk, 0);
-          const prevOd = numeric(prev.OD_in, 0) * 25.4;
-          const prevFlgRad = numeric(prev.flgRad_in, 0) * 25.4;
-          const physicalGap = prevOd / 2 + prevIns + odMm / 2 + insMm;
-          const flangeAllowance = (prev.stagger && line.stagger) ? Math.max(prevFlgRad, flgRadMm) : (prevFlgRad + flgRadMm);
-
-          // Bowing allowance: accommodates thermal bowing between guides.
-          // Convention per Fluor/Caesar: 15% of the thermal expansion (0.15 * delta).
-          const bowing = Math.max(numeric(prev.delta_in, 0), numeric(line.delta_in, 0)) * 25.4 * numeric(structSettings.bowingMultiplier, 0.15);
-
-          const MIN_PIPE_GUIDE_CLEARANCE_MM = 75;  // min clear gap between guided pipes, per Fluor piperack std
-          const GUIDE_BRACKET_ALLOWANCE_MM  = 25;  // bracket/clip thickness allowance
-          const standardGap = Math.max(MIN_PIPE_GUIDE_CLEARANCE_MM, numeric(prev.guide_mm, 50) / 2 + numeric(line.guide_mm, 50) / 2) + GUIDE_BRACKET_ALLOWANCE_MM;
-
-          const spacing = physicalGap + flangeAllowance + bowing + standardGap;
+          const { physicalGap, flangeAllowance, bowing, standardGap, spacing } = calculateRackPipeSpacing(prev, line, clearanceMm, bowingMultiplier);
           currentX += tierGroup[idx - 1].isFutureSlot ? spacing / 2 : spacing;
           line.spacing_log = `S_pipe = PhysGap(${physicalGap.toFixed(0)}) + FlgAllow(${flangeAllowance.toFixed(0)}) + Bowing(${bowing.toFixed(0)}) + StdGap(${standardGap.toFixed(0)}) = ${spacing.toFixed(0)}mm`;
         } else {
@@ -163,6 +170,8 @@ export function solveRackLayout(lines = [], globalSettings = {}, structSettings 
     layout,
     width_mm,
     cantilever_mm,
+    clearanceMm,
+    bowingMultiplier,
     tiers,
     warnings,
     logs,

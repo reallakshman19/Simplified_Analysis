@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStore';
 import { Database, Download, TerminalSquare, Layers } from 'lucide-react';
+import { detectDominantPlaneFromSegments, getSegmentEndpoints, projectPointToPlane } from '../core/geometry/planeDetection';
+import { selectCanonicalSegments } from '../core/geometry/adapters/selectCanonicalSegments';
 
 export const DataTableTab = () => {
   const components = useAppStore(state => state.components);
-  const pcfText = useAppStore(state => state.pcfText);
+  const geometry = useAppStore(state => state.canonicalGeometry);
+  const selectedIds = useAppStore(state => state.selectedIds);
   const updateComponentAttribute = useAppStore(state => state.updateComponentAttribute);
   const updateComponentPoint = useAppStore(state => state.updateComponentPoint);
 
@@ -65,17 +68,25 @@ export const DataTableTab = () => {
   };
 
   const renderStage2 = () => {
-     const projData = stages.stage2;
-     if (!projData || !projData.segments2D) {
-         return <div className="p-4 text-slate-500 text-sm">No transformation data available. Run Transform Tab first.</div>;
+     const model = selectedIds.size ? selectCanonicalSegments(geometry, selectedIds) : geometry;
+     if (!model?.segments?.length) {
+         return <div className="p-4 text-slate-500 text-sm">Load pipe geometry in 3D Viewer or select a pipe component to preview a projection.</div>;
      }
+     // Project each segment independently so disconnected runs and branches keep their positions.
+     const { plane } = detectDominantPlaneFromSegments(model.segments, { nodes: model.nodes });
+     const nodesById = new Map(model.nodes.map(node => [node.id, node]));
+     const segments2D = model.segments.map(segment => {
+         const { start, end } = getSegmentEndpoints(segment, nodesById);
+         return { id: segment.id, start2D: projectPointToPlane(start, plane).slice(0, 2), end2D: projectPointToPlane(end, plane).slice(0, 2), trueLength: Math.hypot(end.x - start.x, end.y - start.y, end.z - start.z) };
+     });
 
      return (
          <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
              <h3 className="text-white mb-4 text-sm font-bold border-b border-slate-700 pb-2 flex justify-between">
-                 <span>Stage 2: 3D to 2D Transformation</span>
-                 <span className="text-blue-400 font-mono">Target Plane: {projData.plane}</span>
+                 <span>Stage 2: Orthographic Preview ({model.unit})</span>
+                 <span className="text-blue-400 font-mono">Target Plane: {plane}</span>
              </h3>
+             {!model.valid && <p role="status" className="mb-3 text-sm text-amber-300">Geometry validation found errors. Review the imported components before analysis.</p>}
              <div className="overflow-x-auto text-xs">
                 <table className="w-full text-left text-slate-300">
                     <thead className="bg-slate-900 text-slate-400">
@@ -87,9 +98,9 @@ export const DataTableTab = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {projData.segments2D.map((s, i) => (
-                            <tr key={i} className="border-b border-slate-700">
-                                <td className="p-2 text-blue-400 font-mono">{s.id || `Seg-${i}`}</td>
+                        {segments2D.map((s) => (
+                            <tr key={s.id} className="border-b border-slate-700">
+                                <td className="p-2 text-blue-400 font-mono">{s.id}</td>
                                 <td className="p-2 font-mono">[{s.start2D?.map(v => v.toFixed(2)).join(', ')}]</td>
                                 <td className="p-2 font-mono">[{s.end2D?.map(v => v.toFixed(2)).join(', ')}]</td>
                                 <td className="p-2 font-mono text-green-400">{s.trueLength?.toFixed(2)}</td>
@@ -99,14 +110,6 @@ export const DataTableTab = () => {
                 </table>
              </div>
 
-             {projData.matrix && (
-                 <div className="mt-4 p-3 bg-slate-900 rounded font-mono text-[10px] text-slate-400">
-                     <div className="mb-1 text-slate-500">Projection Matrix (3x3):</div>
-                     <div>{projData.matrix.elements.slice(0,3).join(', ')}</div>
-                     <div>{projData.matrix.elements.slice(3,6).join(', ')}</div>
-                     <div>{projData.matrix.elements.slice(6,9).join(', ')}</div>
-                 </div>
-             )}
          </div>
      )
   };
@@ -147,7 +150,7 @@ export const DataTableTab = () => {
                     <tr className="bg-slate-900 border-b border-slate-700">
                     <th className="p-3 text-slate-400 font-semibold w-24">ID</th>
                     <th className="p-3 text-slate-400 font-semibold w-32">Type</th>
-                    <th className="p-3 text-slate-400 font-semibold">Points (XYZ)</th>
+                    <th className="p-3 text-slate-400 font-semibold">Points (XYZ, mm)</th>
                     <th className="p-3 text-slate-400 font-semibold">Attributes</th>
                     </tr>
                 </thead>

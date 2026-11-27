@@ -21,6 +21,18 @@ import pipeProps from '../db/pipe_properties.json' with { type: 'json' };
 import flangeRatings from '../db/flange_ratings.json' with { type: 'json' };
 import gasketDims from '../db/gasket_dimensions.json' with { type: 'json' };
 import designStress from '../db/design_stress.json' with { type: 'json' };
+import { readFiniteNumber } from '../../core/solvers/readFiniteNumber.js';
+
+const MIST_LOADS_REQUIRED = 'Vendor nozzle loads missing: F_r, M_l, M_c are required for qualified MIST/nozzle check.';
+
+/** Return the complete vendor load set, including explicit zeros, or null if any measurement is missing. */
+function readVendorNozzleLoads(loads) {
+  const radialForce = readFiniteNumber(loads?.F_r);
+  const longitudinalMoment = readFiniteNumber(loads?.M_l);
+  const circumferentialMoment = readFiniteNumber(loads?.M_c);
+  if (radialForce === null || longitudinalMoment === null || circumferentialMoment === null) return null;
+  return { radialForce, longitudinalMoment, circumferentialMoment };
+}
 
 // DB Lookups with Interpolation
 const interpolateDB = (data, temp, valueKey) => {
@@ -138,6 +150,7 @@ const getDesignStress = (material) => {
 };
 
 // Guided Cantilever Approximation Solver
+/** Calculate axis, shell, and flange screening checks and return the governing status. */
 export const runExtendedSolver = (payload) => {
   const { nodes, segments, anchors, inputs, vessel, boundaryMovement, constraints, methodology } = payload;
   const { material, pipeSize, schedule, tOperate, corrosionAllowance, millTolerance, frictionFactor } = inputs;
@@ -211,32 +224,34 @@ export const runExtendedSolver = (payload) => {
   const momentArm = vessel?.momentArm || 0;
   const M_l_screening = V_c * momentArm;
   const M_c_screening = V_l * momentArm;
-  const F_r = vessel?.vendorNozzleLoads?.F_r ?? F_r_screening;
-  const M_l = vessel?.vendorNozzleLoads?.M_l ?? M_l_screening;
-  const M_c = vessel?.vendorNozzleLoads?.M_c ?? M_c_screening;
+  const vendorNozzleLoads = vessel?.vendorNozzleLoads;
+  const vendorLoads = readVendorNozzleLoads(vendorNozzleLoads);
+  const F_r = vendorLoads?.radialForce ?? F_r_screening;
+  const M_l = vendorLoads?.longitudinalMoment ?? M_l_screening;
+  const M_c = vendorLoads?.circumferentialMoment ?? M_c_screening;
 
   // Phase 3: MIST Shell Shakedown Solver
-  const vendorNozzleLoads = vessel?.vendorNozzleLoads;
-  const hasQualifiedVendorLoads = !!(vendorNozzleLoads &&
-    Number.isFinite(Number(vendorNozzleLoads.F_r)) &&
-    Number.isFinite(Number(vendorNozzleLoads.M_l)) &&
-    Number.isFinite(Number(vendorNozzleLoads.M_c)));
-  const R = (vessel?.vesselOD || 0) / 2;
-  const T = vessel.vesselThk;
-  const r_n = vessel.nozzleRad;
+  const vesselDiameter = readFiniteNumber(vessel?.vesselOD);
+  const R = vesselDiameter === null ? null : vesselDiameter / 2;
+  const T = readFiniteNumber(vessel?.vesselThk);
+  const r_n = readFiniteNumber(vessel?.nozzleRad);
   const f = getDesignStress(material);
 
-  const K = (Math.pow((r_n * T), 2) * f) / Math.sqrt(R * T);
+  const shellBasisValid = [R, T, r_n, f].every((value) => Number.isFinite(value) && value > 0);
+  const shellFactor = shellBasisValid ? (Math.pow((r_n * T), 2) * f) / Math.sqrt(R * T) : null;
+  const K = Number.isFinite(shellFactor) && shellFactor > 0 ? shellFactor : null;
+  const canUseShellData = K !== null && vendorLoads !== null;
+  const stress_radial = canUseShellData ? 3.0 * r_n * F_r : null;
+  const stress_long = canUseShellData ? 1.5 * M_l : null;
+  const stress_circ = canUseShellData ? 1.15 * Math.sqrt(r_n / 10) * M_c : null;
 
-  const stress_radial = 3.0 * r_n * F_r;
-  const stress_long = 1.5 * M_l;
-  const stress_circ = 1.15 * Math.sqrt(r_n / 10) * M_c;
-
-  const interactionRatio = K > 0 ? (stress_radial + stress_long + stress_circ) / (Math.PI * K) : 999;
-  const mistStatus = hasQualifiedVendorLoads ? (interactionRatio <= 1.0 ? 'PASS' : 'FAIL') : 'NOT_QUALIFIED';
-  if (!hasQualifiedVendorLoads) {
-    warnings.push('Vendor nozzle loads missing: F_r, M_l, M_c are required for qualified MIST/nozzle check.');
-  }
+  const ratio = canUseShellData ? (stress_radial + stress_long + stress_circ) / (Math.PI * K) : null;
+  const interactionRatio = Number.isFinite(ratio) ? ratio : null;
+  const mistQualified = interactionRatio !== null;
+  const mistStatus = mistQualified ? (interactionRatio <= 1.0 ? 'PASS' : 'FAIL') : 'NOT_QUALIFIED';
+  const mistDiagnostic = vendorLoads === null ? MIST_LOADS_REQUIRED
+    : mistQualified ? null : 'MIST calculation requires positive, finite vessel dimensions and a finite interaction ratio.';
+  if (mistDiagnostic && vendorNozzleLoads == null) warnings.push(mistDiagnostic);
 
   formulaTrace.push({
     name: 'MIST Shell Shakedown (Phase 3)',
@@ -244,7 +259,7 @@ export const runExtendedSolver = (payload) => {
     expression: 'K = (r_n·T)²·f / √(R·T); interaction = (σ_r + σ_l + σ_c) / (π·K)',
     values: { R_vessel_in: R, T_thk_in: T, r_nozzle_in: r_n, f_design_psi: f,
               K, stress_radial: stress_radial, stress_long: stress_long,
-              stress_circ: stress_circ, interactionRatio, mistStatus, isQualified: hasQualifiedVendorLoads }
+              stress_circ: stress_circ, interactionRatio, mistStatus, isQualified: mistQualified }
   });
 
   // Phase 4: Koves Flange Leakage Solver
@@ -273,11 +288,17 @@ export const runExtendedSolver = (payload) => {
               equivalentLoad, allowableCapacity, flangeStatus }
   });
 
+  const hasFailedCheck = [xRes.status, yRes.status, zRes.status, mistStatus, flangeStatus].includes('FAIL');
+  const nozzleStatus = mistQualified ? 'PASSED' : vendorNozzleLoads == null ? 'SCREENING_ONLY' : 'NOT_QUALIFIED';
+  const diagnostics = mistDiagnostic && vendorNozzleLoads != null
+    ? [{ severity: 'ERROR', code: vendorLoads === null ? 'MIST_VENDOR_LOADS_MISSING' : 'MIST_SHELL_DATA_INVALID', message: mistDiagnostic }]
+    : [];
   return {
     axes: { X: xRes, Y: yRes, Z: zRes },
-    mist: { K, interactionRatio, status: mistStatus, isQualified: hasQualifiedVendorLoads, diagnostic: hasQualifiedVendorLoads ? null : 'Vendor nozzle loads missing: F_r, M_l, M_c are required for qualified MIST/nozzle check.' },
+    mist: { K, interactionRatio, status: mistStatus, isQualified: mistQualified, diagnostic: mistDiagnostic },
     flange: { methodId: 'KOVES_FLANGE_SCREENING', formulaIds: ['KOVES_EQUIVALENT_LOAD'], unitSystem: { force: 'lbf', moment: 'in-lbf', pressure: 'psi', length: 'in' }, equivalentLoad, allowableCapacity, status: flangeStatus },
     warnings,
+    diagnostics,
     formulaTrace,
     assumptions: [
       'Calc Extended remains a simplified engineering calculator and is not a final code-compliance stress analysis.',
@@ -287,7 +308,7 @@ export const runExtendedSolver = (payload) => {
     methodId: 'KOVES_FLANGE_SCREENING',
     formulaIds: ['KOVES_EQUIVALENT_LOAD'],
     unitSystem: { coordinate: 'ft', force: 'lbf', stress: 'psi', moment: 'in-lbf', length: 'in' },
-    status: mistStatus === 'NOT_QUALIFIED' ? 'SCREENING_ONLY' : (flangeStatus === 'PASS' ? 'PASSED' : 'FAILED'),
+    status: hasFailedCheck ? 'FAILED' : nozzleStatus,
     meta: { schemaVersion: 'extended-calc-v1', shortDropsIgnored, shortDropLimit_ft, unitSystem: { coordinate: 'ft' }, e, E, I_eff, OD, pipeSize, pipeSchedule: schedule }
   };
 };
@@ -349,7 +370,7 @@ export function calcExtendedGlobalReaction({ axes }) {
 }
 
 export function calcMistNozzleQualification({ vendorLoads }) {
-  const hasLoads = !!(vendorLoads && Number.isFinite(Number(vendorLoads.F_r)) && Number.isFinite(Number(vendorLoads.M_l)) && Number.isFinite(Number(vendorLoads.M_c)));
+  const hasLoads = readVendorNozzleLoads(vendorLoads) !== null;
   return extendedContract({
     methodId: 'MIST_NOZZLE_SCREENING',
     formulaIds: ['MIST_VENDOR_LOAD_SCREENING'],
@@ -357,10 +378,10 @@ export function calcMistNozzleQualification({ vendorLoads }) {
     results: {
       status: hasLoads ? 'SCREENING_ONLY' : 'NOT_QUALIFIED',
       isQualified: hasLoads,
-      diagnostic: hasLoads ? null : 'Vendor nozzle loads missing: F_r, M_l, M_c are required for qualified MIST/nozzle check.'
+      diagnostic: hasLoads ? null : MIST_LOADS_REQUIRED
     },
     status: hasLoads ? 'SCREENING_ONLY' : 'NOT_QUALIFIED',
-    diagnostics: hasLoads ? [] : [{ severity: 'ERROR', message: 'Vendor nozzle loads missing: F_r, M_l, M_c are required for qualified MIST/nozzle check.' }]
+    diagnostics: hasLoads ? [] : [{ severity: 'ERROR', code: 'MIST_VENDOR_LOADS_MISSING', message: MIST_LOADS_REQUIRED }]
   });
 }
 

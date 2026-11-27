@@ -1,8 +1,11 @@
 import { classifySolverTopology, SOLVER_TOPOLOGY_TYPE } from './classifySolverTopology.js';
 import { createSolverResultContract, ENGINEERING_LEVEL } from '../certification/solverResultContract.js';
+import { solveGC3D } from '../../../solvers/3d/solveGC3D.js';
+import { solveBranchScreening } from '../branch/solveBranchScreening.js';
 
 export const SOLVER_ROUTER_SCHEMA_VERSION = 'solver-topology-router-v1';
 
+/** Route a solver payload and return its result with topology metadata. */
 export async function solveByTopologyRouter(payload = {}, options = {}) {
   const topology = classifySolverTopology(payload);
 
@@ -16,21 +19,17 @@ export async function solveByTopologyRouter(payload = {}, options = {}) {
   };
 
   if (topology.topologyType === SOLVER_TOPOLOGY_TYPE.GC3D_SUPPORTED_ROUTE) {
-    const gc3dSolver = options.gc3dSolver || (await import('../../solvers/3d/solveGC3D.js').then(m => m.solveGC3D).catch(() => null));
-    if (gc3dSolver) {
-      routing.selectedSolver = 'GC3D';
-      const result = await Promise.resolve(gc3dSolver(payload));
-      return { ...result, routing };
-    }
+    const gc3dSolver = options.gc3dSolver || solveGC3D;
+    routing.selectedSolver = 'GC3D';
+    const result = await gc3dSolver(payload);
+    return { ...result, routing };
   }
 
   if (topology.topologyType === SOLVER_TOPOLOGY_TYPE.BRANCH_ROUTE) {
-    const branchSolver = options.branchSolver || (await import('../branch/solveBranchScreening.js').then(m => m.solveBranchScreening).catch(() => null));
-    if (branchSolver) {
-      routing.selectedSolver = 'BRANCH_SCREENING';
-      const result = await Promise.resolve(branchSolver(payload));
-      return { ...result, routing };
-    }
+    const branchSolver = options.branchSolver || solveBranchScreening;
+    routing.selectedSolver = 'BRANCH_SCREENING';
+    const result = await branchSolver(payload);
+    return { ...result, routing };
   }
 
   if (topology.topologyType === SOLVER_TOPOLOGY_TYPE.EMPTY) {

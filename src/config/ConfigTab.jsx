@@ -1,10 +1,10 @@
 /**
- * ConfigTab.jsx — App configuration, version watermark, inline session log viewer.
+ * Display the app version and session log, with a local Markdown download.
  */
 
 import React, { useState, useEffect } from 'react';
 import { VersionBadge } from './VersionBadge';
-import { sessionLog, snapshotSessionLog } from '../utils/logger';
+import { downloadSessionLog, sessionLog, snapshotSessionLog } from '../utils/logger';
 
 const styles = {
     wrapper: { flex: 1, padding: '2rem', color: '#cbd5e1', fontFamily: 'sans-serif', overflowY: 'auto' },
@@ -112,6 +112,7 @@ export function ConfigTab() {
                     ))}
                 </div>
                 <button style={styles.refreshBtn} onClick={() => setTick(t => t + 1)}>⟳ Refresh Log</button>
+                <button type="button" style={{ ...styles.refreshBtn, marginLeft: 8 }} onClick={downloadSessionLog}>Download Log</button>
             </div>
 
             <VersionBadge />

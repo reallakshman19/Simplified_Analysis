@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../store/appStore';
 import { DEFAULT_ENGINEERING_SETTINGS, SETTINGS_GROUPS } from '../data/engineeringDefaults/defaults';
+import { readFiniteNumber } from '../core/solvers/readFiniteNumber.js';
 
 
 function stableSettingsHash(value) {
@@ -30,11 +31,14 @@ const fieldGroups = {
 
 function Field({ name, value, onChange }) {
   const isBoolean = typeof value === 'boolean';
-  const isNumber = typeof value === 'number';
+  const isRackSpacing = name === 'rackSpacingMargin';
+  const isNumber = isRackSpacing || typeof value === 'number';
+  const spacing = isRackSpacing ? readFiniteNumber(value) : null;
+  const invalidSpacing = isRackSpacing && (spacing == null || spacing < 0);
   const testId = `settings-field-${name}`;
   return (
     <label style={{ display: 'grid', gap: 6, color: '#cbd5e1', fontSize: 13 }}>
-      <span>{name}</span>
+      <span>{isRackSpacing ? 'Rack spacing margin (mm)' : name}</span>
       {name === "projectUnitSystem" ? (
           <select data-testid={testId} value={value} onChange={e => onChange(name, e.target.value)} style={inputStyle}><option value="imperial">Imperial</option><option value="metric">Metric</option></select>
         ) : isBoolean ? (
@@ -43,14 +47,18 @@ function Field({ name, value, onChange }) {
           <option value="false">false</option>
         </select>
       ) : (
-        <input data-testid={testId} value={value} type={isNumber ? 'number' : 'text'} step="any" onChange={(e) => onChange(name, isNumber ? Number(e.target.value) : e.target.value)} style={inputStyle} />
+        <input data-testid={testId} value={value ?? ''} type={isNumber ? 'number' : 'text'} step="any"
+          min={isRackSpacing ? 0 : undefined} aria-invalid={invalidSpacing}
+          onChange={(e) => onChange(name, isRackSpacing ? readFiniteNumber(e.target.value) : isNumber ? Number(e.target.value) : e.target.value)} style={inputStyle} />
       )}
+      {invalidSpacing && <span role="alert" style={{ color: '#fca5a5' }}>Enter a finite, non-negative clearance in millimeters.</span>}
     </label>
   );
 }
 
 const inputStyle = { background: '#0f172a', color: '#f8fafc', border: '1px solid #334155', borderRadius: 8, padding: 8 };
 
+/** Edit persisted project defaults. Rack clearance is stored in millimeters. */
 export const SettingsTab = () => {
   const engineeringDefaults = useAppStore((state) => state.engineeringDefaults) || DEFAULT_ENGINEERING_SETTINGS;
   const setEngineeringDefault = useAppStore((state) => state.setEngineeringDefault);

@@ -23,6 +23,7 @@ const lengthFromPoints = (points = []) => {
 
 const shouldSkipAttribute = (key) => (
   key.startsWith('END-POINT-') ||
+  /^UNITS-(CO-ORDS|BORE)$/i.test(key) ||
   key === 'REFNO' ||
   key === 'PIPELINE-REFERENCE' ||
   key.startsWith('<SUPPORT')
@@ -32,13 +33,14 @@ const shouldSkipAttribute = (key) => (
  * Serialize parsed PCF components back to a conservative PCF-like text export.
  * Raw component attributes are preserved where possible; geometry lines are
  * regenerated from the current edited component coordinates.
- * @param {Array<Record<string, unknown>>} components
+ * @param {Array<Record<string, unknown>>} components Components in millimeters with nominal bore in DN.
  * @returns {string}
  */
 export function serializePcf(components) {
-  const lines = [];
+  if (!components?.length) return '';
+  const lines = ['UNITS-CO-ORDS MM', 'UNITS-BORE MM'];
 
-  (components || []).forEach((item) => {
+  components.forEach((item) => {
     const type = item.type || 'PIPE';
     const mat = item.attributes?.['COMPONENT-ATTRIBUTE3'] || item.attributes?.MATERIAL || item.attributes?.['ITEM-CODE'] || 'UNKNOWN-MATERIAL';
     const ref = item.attributes?.REFNO || item.attributes?.['COMPONENT-ATTRIBUTE97'] || item.id || 'UNKNOWN';

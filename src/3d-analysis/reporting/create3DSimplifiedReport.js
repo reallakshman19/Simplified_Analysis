@@ -124,12 +124,15 @@ function collectComponentPlacementDiagnostics(componentPlacementTable = []) {
     }));
 }
 
+/** Build the support-load report with model validation and the GC3D screening outcome. */
 export function create3DSimplifiedReport({
   model,
   validation,
   summary,
   propertySummary,
   supportLoads,
+  gc3dStatus,
+  gc3dDiagnostics,
   source = '3d-simplified-panel',
 } = {}) {
   const masterDbProvenance = collectMasterDbProvenance(model);
@@ -138,6 +141,7 @@ export function create3DSimplifiedReport({
   const placementDiagnostics = collectComponentPlacementDiagnostics(componentPlacementTable);
 
   const diagnostics = [
+    ...(gc3dDiagnostics || []),
     ...(validation?.diagnostics || []),
     ...(supportLoads?.diagnostics || []),
     ...placementDiagnostics,
@@ -149,6 +153,7 @@ export function create3DSimplifiedReport({
     title: '3D Simplified Calculation Report',
     source,
     status: validation?.status || 'UNKNOWN',
+    gc3dStatus: gc3dStatus ?? 'NOT_RUN',
 
     methodIds: unique([
       supportLoads?.methodId,
@@ -204,7 +209,8 @@ export function create3DSimplifiedReportMarkdown(report = {}) {
   lines.push('');
   lines.push(`Report ID: ${report.reportId || 'UNSPECIFIED'}`);
   lines.push(`Schema: ${report.schemaVersion || 'UNSPECIFIED'}`);
-  lines.push(`Status: ${report.status || 'UNKNOWN'}`);
+  lines.push(`Model validation status: ${report.status || 'UNKNOWN'}`);
+  lines.push(`GC3D screening status: ${report.gc3dStatus ?? 'NOT_RUN'}`);
   lines.push(`Method IDs: ${(report.methodIds || []).join(', ') || 'UNSPECIFIED'}`);
   lines.push('');
 

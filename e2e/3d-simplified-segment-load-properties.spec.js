@@ -38,14 +38,14 @@ test.describe('Slice M — Segment Pipe / Load Property Editor', () => {
 
     await page.getByTestId('sketcher-segment-nps').fill(fixture.manualEdits.nps);
 
-    await fillNumber(page, 'sketcher-pipe-od-mm', fixture.manualEdits.od_mm);
+    await fillNumber(page, 'sketcher-segment-od-mm', fixture.manualEdits.od_mm);
     await fillNumber(page, 'sketcher-segment-material-density-kg-m3', fixture.manualEdits.materialDensity_kg_m3);
     await fillNumber(page, 'sketcher-segment-rating-class', fixture.manualEdits.ratingClass);
-    await fillNumber(page, 'sketcher-design-temperature-c', fixture.manualEdits.designTemperature_C);
-    await fillNumber(page, 'sketcher-design-pressure-barg', fixture.manualEdits.designPressure_barg);
-    await fillNumber(page, 'sketcher-fluid-density-kg-m3', fixture.manualEdits.fluidDensity_kg_m3);
-    await fillNumber(page, 'sketcher-insulation-thickness-mm', fixture.manualEdits.insulationThickness_mm);
-    await fillNumber(page, 'sketcher-insulation-density-kg-m3', fixture.manualEdits.insulationDensity_kg_m3);
+    await fillNumber(page, 'sketcher-segment-design-temperature-c', fixture.manualEdits.designTemperature_C);
+    await fillNumber(page, 'sketcher-segment-design-pressure-barg', fixture.manualEdits.designPressure_barg);
+    await fillNumber(page, 'sketcher-segment-fluid-density-kg-m3', fixture.manualEdits.fluidDensity_kg_m3);
+    await fillNumber(page, 'sketcher-segment-insulation-thickness-mm', fixture.manualEdits.insulationThickness_mm);
+    await fillNumber(page, 'sketcher-segment-insulation-density-kg-m3', fixture.manualEdits.insulationDensity_kg_m3);
 
     await page.getByTestId('sketcher-segment-material').selectOption(fixture.manualEdits.material);
 

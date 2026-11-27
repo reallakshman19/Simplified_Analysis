@@ -174,6 +174,13 @@ const DN_TO_NPS = {
   900: 36
 };
 
+const NPS_TO_DN = new Map(Object.entries(DN_TO_NPS).map(([dn, nps]) => [nps, Number(dn)]));
+
+/** Return the metric nominal size for an NPS value, or null when it is unmapped. */
+export function npsToDn(nps) {
+  return NPS_TO_DN.get(nps) ?? null;
+}
+
 /**
  * Convert DN (metric bore) to NPS (inches).
  * Returns null if no mapping exists.

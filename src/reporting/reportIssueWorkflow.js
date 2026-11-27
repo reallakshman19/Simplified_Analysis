@@ -1,3 +1,5 @@
+import { getMethod } from '../engineering-methods/methodRegistry.js';
+
 export const REPORT_ISSUE_SCHEMA_VERSION = 'report-issue-workflow-v1';
 
 export const REPORT_ISSUE_STATUS = Object.freeze({
@@ -15,6 +17,9 @@ export const REPORT_ISSUE_TYPE = Object.freeze({
 const BLOCKING_STATUSES = new Set(['NOT_QUALIFIED', 'MISSING_DATA', 'UNSUPPORTED_GEOMETRY', 'BENCHMARK_NOT_CERTIFIED', 'FAILED']);
 const NON_ISSUE_DATA_STATUSES = new Set(['MISSING_DATA', 'NOT_QUALIFIED', 'UNSUPPORTED_GEOMETRY']);
 const NON_ISSUE_COMPONENT_STATUSES = new Set(['MISSING_COMPONENT_DATA', 'NOT_QUALIFIED', 'UNSUPPORTED_GEOMETRY']);
+const SCREENING_LEVELS = new Set(['SCREENING', 'BENCHMARKED_SCREENING', 'DESIGN_AID_SCREENING']);
+
+const hasReviewerName = (name) => typeof name === 'string' && name.trim().length > 0;
 
 function fnvHash(str) {
   let hash = 2166136261;
@@ -39,6 +44,7 @@ export function stableReportWorkflowHash(input) {
   return 'rpt-' + fnvHash(canonical);
 }
 
+// Evaluate the active result and reviewer fields to get allowed actions and blockers.
 export function evaluateReportIssueEligibility({
   activeReportContext,
   reportPayload,
@@ -55,10 +61,11 @@ export function evaluateReportIssueEligibility({
   const resultStatus = result.status || reportPayload?.status || null;
   const dataStatus = result.dataStatus?.status || result.dataStatus || reportPayload?.engineeringDataSource?.status || null;
   const componentDataStatus = reportPayload?.componentDataStatus?.status || reportPayload?.componentDataStatus || activeReportContext?.componentDataStatus?.status || activeReportContext?.componentDataStatus || null;
-  const engineeringLevel = result.engineeringLevel || reportPayload?.engineeringLevel || null;
   const benchmarkStatus = activeReportContext?.benchmarkStatus || reportPayload?.benchmarkStatus || 'NOT_RUN';
   const methodId = activeReportContext?.methodId || reportPayload?.methodId || null;
+  const engineeringLevel = result.engineeringLevel || reportPayload?.engineeringLevel || getMethod(methodId)?.qualificationLevel || null;
   const formulaIds = activeReportContext?.result?.formulaIds || reportPayload?.formulaIds || [];
+  const hasChecker = hasReviewerName(reviewerChecker.checkedBy);
 
   if (!activeReportContext) blockers.push({ code: 'NO_ACTIVE_REPORT', message: 'No active calculation report.' });
   if (!methodId || methodId === 'UNKNOWN_METHOD') blockers.push({ code: 'MISSING_METHOD_ID', message: 'Method ID is missing or unknown.' });
@@ -69,14 +76,14 @@ export function evaluateReportIssueEligibility({
   if (benchmarkCertificationRequired && benchmarkStatus !== 'PASSED') blockers.push({ code: 'BENCHMARK_NOT_CERTIFIED', message: 'Benchmark certification required but not passed.' });
 
   if (targetStatus === REPORT_ISSUE_STATUS.CHECKED) {
-    if (!reviewerChecker.checkedBy) blockers.push({ code: 'CHECKER_REQUIRED', message: 'Checked By is required for CHECKED status.' });
+    if (!hasChecker) blockers.push({ code: 'CHECKER_REQUIRED', message: 'Checked By is required for CHECKED status.' });
   }
 
   if (targetStatus === REPORT_ISSUE_STATUS.ISSUED) {
-    if (!reviewerChecker.preparedBy) blockers.push({ code: 'PREPARED_BY_REQUIRED', message: 'Prepared By is required for ISSUED status.' });
-    if (!reviewerChecker.checkedBy) blockers.push({ code: 'CHECKED_BY_REQUIRED', message: 'Checked By is required for ISSUED status.' });
-    if (!reviewerChecker.approvedBy) blockers.push({ code: 'APPROVED_BY_REQUIRED', message: 'Approved By is required for ISSUED status.' });
-    if (engineeringLevel === 'SCREENING' && issueType === REPORT_ISSUE_TYPE.FINAL_ISSUE) {
+    if (!hasReviewerName(reviewerChecker.preparedBy)) blockers.push({ code: 'PREPARED_BY_REQUIRED', message: 'Prepared By is required for ISSUED status.' });
+    if (!hasChecker) blockers.push({ code: 'CHECKED_BY_REQUIRED', message: 'Checked By is required for ISSUED status.' });
+    if (!hasReviewerName(reviewerChecker.approvedBy)) blockers.push({ code: 'APPROVED_BY_REQUIRED', message: 'Approved By is required for ISSUED status.' });
+    if (issueType === REPORT_ISSUE_TYPE.FINAL_ISSUE && (SCREENING_LEVELS.has(engineeringLevel) || resultStatus === 'SCREENING_ONLY')) {
       blockers.push({ code: 'SCREENING_LEVEL_NOT_FINAL', message: 'SCREENING level methods cannot be issued as FINAL_ISSUE.' });
     }
     if (componentDataStatus && NON_ISSUE_COMPONENT_STATUSES.has(componentDataStatus)) {
@@ -85,7 +92,7 @@ export function evaluateReportIssueEligibility({
   }
 
   const canSaveDraft = !!activeReportContext;
-  const canCheck = canSaveDraft && !blockers.some(b => ['NO_ACTIVE_REPORT', 'STALE_RESULTS', 'SOLVER_NOT_QUALIFIED', 'DATA_NOT_QUALIFIED'].includes(b.code));
+  const canCheck = canSaveDraft && hasChecker && !blockers.some(b => ['STALE_RESULTS', 'SOLVER_NOT_QUALIFIED', 'DATA_NOT_QUALIFIED'].includes(b.code));
   const canIssue = blockers.length === 0;
 
   return { schemaVersion: REPORT_ISSUE_SCHEMA_VERSION, targetStatus, issueType, canSaveDraft, canCheck, canIssue, blockers, warnings, resultStatus, dataStatus, componentDataStatus, engineeringLevel, benchmarkStatus };

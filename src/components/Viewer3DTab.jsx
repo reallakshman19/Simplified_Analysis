@@ -74,6 +74,7 @@ export const Viewer3DTab = () => {
 
   const handleGenerate3D = () => {
     if (!pcfText.trim()) {
+      setComponents([]);
       alert("Please paste or load PCF text first.");
       return;
     }
@@ -85,10 +86,10 @@ export const Viewer3DTab = () => {
       summary: parseResult.summary,
     });
 
-    if (parsedComponents.length > 0) {
-      setComponents(parsedComponents);
-    } else {
-      alert("No valid pipe components found in PCF text.");
+    setComponents(parsedComponents);
+    if (parsedComponents.length === 0) {
+      const blockingDiagnostic = parseResult.diagnostics.find(({ severity }) => severity === 'error');
+      alert(blockingDiagnostic?.message || 'No valid pipe components found in PCF text.');
     }
   };
 
@@ -280,7 +281,7 @@ export const Viewer3DTab = () => {
                   useAnalysisStore.getState().importFromSketcher(sketch.nodes, sketch.segments, { designTemperature: canonical.summary?.designTemperature_F });
                 } else {
                   if (!targetComps.length) { alert('No valid components selected.'); return; }
-                  useAnalysisStore.getState().importFromViewer(targetComps, app.processParams || {});
+                  useAnalysisStore.getState().importFromViewer(targetComps);
                 }
                 useAppStore.getState().setActiveTab('3d-analysis');
               }}

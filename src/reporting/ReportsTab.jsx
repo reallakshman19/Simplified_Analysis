@@ -62,8 +62,13 @@ export const ReportsTab = () => {
     benchmarkCertificationRequired: activeReportContext?.settings?.benchmarkCertificationRequired === true,
   });
 
-  // Create revision for saving
+  const canSaveRevision = eligibility.targetStatus === REPORT_ISSUE_STATUS.ISSUED
+    ? eligibility.canIssue
+    : eligibility.targetStatus === REPORT_ISSUE_STATUS.CHECKED ? eligibility.canCheck : eligibility.canSaveDraft;
+
+  // Save the selected status only when the report meets its eligibility rules.
   const createRevision = () => {
+    if (!canSaveRevision) return;
     const revision = createReportRevision({
       activeReportContext,
       reportPayload,
@@ -254,14 +259,14 @@ export const ReportsTab = () => {
           <button
             data-testid="report-save-revision"
             onClick={() => createRevision()}
-            disabled={!eligibility.canSaveDraft}
+            disabled={!canSaveRevision}
             style={{
               padding: '8px 16px',
               borderRadius: 4,
               border: 'none',
-              background: eligibility.canSaveDraft ? '#3b82f6' : '#4b5563',
+              background: canSaveRevision ? '#3b82f6' : '#4b5563',
               color: '#fff',
-              cursor: eligibility.canSaveDraft ? 'pointer' : 'not-allowed',
+              cursor: canSaveRevision ? 'pointer' : 'not-allowed',
               fontSize: 12,
               fontWeight: 'bold',
             }}
