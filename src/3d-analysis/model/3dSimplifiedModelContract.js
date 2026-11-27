@@ -1,3 +1,5 @@
+import { readFiniteNumber } from '../../core/solvers/readFiniteNumber.js';
+
 export const MODEL_3D_SIMPLIFIED_SCHEMA_VERSION = '3d-simplified-model-v1';
 
 function finite(value, fallback = null) {
@@ -69,18 +71,14 @@ function normalizeSegment(segment = {}, index = 0) {
     finite(segment.length_mm) ??
     (finite(segment.length_in) != null ? finite(segment.length_in) * 25.4 : null);
 
+  const odIn = readFiniteNumber(segment.od_in);
+  const wallIn = readFiniteNumber(segment.wt_in);
   const od_mm =
-    finite(segment.pipe?.od_mm) ??
-    finite(segment.properties?.pipe?.od_mm) ??
-    finite(segment.od_mm) ??
-    (finite(segment.od_in) != null ? finite(segment.od_in) * 25.4 : null);
-
+    readFiniteNumber(segment.pipe?.od_mm ?? segment.properties?.pipe?.od_mm ?? segment.od_mm) ??
+    (odIn == null ? null : odIn * 25.4);
   const wall_mm =
-    finite(segment.pipe?.wall_mm) ??
-    finite(segment.properties?.pipe?.wall_mm) ??
-    finite(segment.wall_mm) ??
-    finite(segment.wt_mm) ??
-    (finite(segment.wt_in) != null ? finite(segment.wt_in) * 25.4 : null);
+    readFiniteNumber(segment.pipe?.wall_mm ?? segment.properties?.pipe?.wall_mm ?? segment.wall_mm ?? segment.wt_mm) ??
+    (wallIn == null ? null : wallIn * 25.4);
 
   const dn_mm =
     finite(segment.pipe?.dn_mm) ??
@@ -153,6 +151,7 @@ function normalizeSegment(segment = {}, index = 0) {
 
     provenance: {
       propertySource: text(segment.propertySource, ''),
+      pipeSectionSource: text(segment.pipeSectionSource, ''),
       sourceSegmentId: text(segment.sourceSegmentId, segment.id || ''),
       masterDbRowId: text(segment.masterDbRowId, ''),
       masterDbVersion: text(segment.masterDbVersion, ''),

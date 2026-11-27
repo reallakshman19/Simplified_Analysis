@@ -1,64 +1,27 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { run2DSolver } from '../../solvers/2d';
-import { calcCantileverEndLoad } from '../../solvers/2d/math2d';
+import { calcCantileverEndLoad, calcGuidedCantileverThermal, calcSimpleSpanPointLoad, calcSimpleSpanDistributedLoad } from '../../solvers/2d/math2d';
 import { useExtendedStore } from '../store/useExtendedStore';
 import { runExtendedSolver } from '../solver/ExtendedSolver'; // Reuse the pure function by mocking an equivalent 3D payload
-import { getUnitLabel, formatUnit, MetricToImperial } from '../utils/units';
+import { getUnitLabel, formatUnit, MetricToImperial, ImperialToMetric, projectDisplayUnit } from '../utils/units';
+import { prepareImported2D, importedAnchorsReady } from '../solver/imported2DWorkflow.js';
+import { publishActiveReportContext } from '../../reporting/publishActiveReportContext.js';
 
 function isDirect2DBenchmarkPayload(payload, currentBenchmarkMock) {
-  return Boolean(
-    payload &&
-    (
-      currentBenchmarkMock?.id?.startsWith('2D-') ||
-      payload.methodId ||
-      payload.calculationType ||
-      payload.caseId?.startsWith?.('2D-')
-    )
-  );
+  return Boolean(payload && currentBenchmarkMock?.module === '2d-math');
 }
 
 function runDirect2DBenchmark(payload) {
-  const methodId = payload.methodId || payload.calculationType || 'CANTILEVER_END_LOAD';
+  const methodId = payload.methodId || payload.calculationType;
   const input = payload.input || payload.inputs || {};
-
-  if (payload.geometry) {
-    return run2DSolver({
-      ...payload,
-      calculationType: methodId,
-      inputs: input,
-    });
-  }
-
-  if (methodId === 'CANTILEVER_END_LOAD') {
-    const result = calcCantileverEndLoad(input);
-
-    return {
-      moduleId: '2d-simplified-stress-check',
-      methodId: result.methodId,
-      formulaIds: result.formulaIds || [],
-      unitSystem: 'imperial',
-      status: result.status || 'PASSED',
-      engineeringLevel: 'SCREENING',
-      inputs: payload,
-      results: result.outputs || {},
-      diagnostics: result.diagnostics || [],
-      warnings: result.warnings || [],
-    };
-  }
-
-  return {
-    moduleId: '2d-simplified-stress-check',
-    methodId,
-    formulaIds: [],
-    unitSystem: 'imperial',
-    status: 'FAILED',
-    engineeringLevel: 'SCREENING',
-    inputs: payload,
-    results: {},
-    diagnostics: [{ severity: 'ERROR', code: 'UNSUPPORTED_2D_BENCHMARK_METHOD', message: `Unsupported 2D benchmark method: ${methodId}` }],
-    warnings: [],
+  const solvers = {
+    CANTILEVER_END_LOAD: calcCantileverEndLoad,
+    GC_BASIC_12EI: calcGuidedCantileverThermal,
+    SIMPLE_SPAN_CONCENTRATED: calcSimpleSpanPointLoad,
+    SIMPLE_SPAN_DISTRIBUTED: calcSimpleSpanDistributedLoad,
   };
+  return solvers[methodId] ? solvers[methodId](input) : run2DSolver({ ...payload, calculationType: methodId, inputs: input });
 }
 
 const RatioBar = ({ ratio }) => {
@@ -195,11 +158,12 @@ const Schematic2D = ({ shape, inputs, onUpdate }) => {
     );
   }
   if (shape === 'U-Loop') {
-    const totalW = Math.max(inputs.L + inputs.W, 1);
+    if (inputs.W >= inputs.L) return null;
+    const totalW = Math.max(inputs.L, 1);
     const totalH = Math.max(inputs.H, 1);
     const maxDim = Math.max(totalW, totalH);
     const scale = 80 / maxDim;
-    const l1 = (inputs.L / 2) * scale;
+    const l1 = ((inputs.L - inputs.W) / 2) * scale;
     const w = inputs.W * scale;
     const h = totalH * scale;
 
@@ -222,7 +186,8 @@ export default function Bundle2DSolverView() {
   const currentBenchmarkMock = useAppStore((state) => state.currentBenchmarkMock);
   const engineeringDefaults = useAppStore((state) => state.engineeringDefaults);
   const setActiveReportContext = useAppStore((state) => state.setActiveReportContext);
-  const clearResultsStale = useAppStore((state) => state.clearResultsStale);
+  const markResultsStale = useAppStore((state) => state.markResultsStale);
+  const [benchmarkResult, setBenchmarkResult] = useState(null);
 
   const lastDirect2DSignatureRef = useRef(null);
 
@@ -254,6 +219,7 @@ export default function Bundle2DSolverView() {
       'CANTILEVER_END_LOAD';
 
     lastDirect2DSignatureRef.current = signature;
+    setBenchmarkResult(solverResult);
 
     setActiveReportContext({
       source,
@@ -265,8 +231,7 @@ export default function Bundle2DSolverView() {
       result: {
         ...solverResult,
         methodId,
-        formulaIds: ['REPORT_MARKDOWN_CALC_SHEET'],
-        unitSystem: 'imperial',
+        formulaIds: solverResult.formulaIds || [],
       },
       benchmarkStatus: currentBenchmarkMock ? 'MOCK_LOADED' : 'MANUAL_PAYLOAD',
       settings: {
@@ -274,54 +239,64 @@ export default function Bundle2DSolverView() {
         projectUnitSystem: 'imperial',
         benchmarkCertificationRequired: true,
       },
-      settingsHash: `engineering-settings-v1-${JSON.stringify(engineeringDefaults || {}).length}`,
+      settingsHash: null,
       diagnostics: solverResult.diagnostics || [],
       warnings: solverResult.warnings || [],
     });
 
-    clearResultsStale?.();
     return true;
   }, [
     analysisPayload,
     currentBenchmarkMock,
     engineeringDefaults,
     setActiveReportContext,
-    clearResultsStale,
   ]);
 
   useEffect(() => {
     publishLoaded2DReportContext('benchmark-auto-direct-2d');
   }, [publishLoaded2DReportContext]);
 
-  const { unitSystem, methodology, inputs: globalInputs } = useExtendedStore();
+  const { methodology, inputs: globalInputs } = useExtendedStore();
+  const unitSystem = projectDisplayUnit(engineeringDefaults.projectUnitSystem);
+  const imported = analysisPayload?.schemaVersion === 'simplified-2d-v1' && !currentBenchmarkMock;
+  const importedRoute = useMemo(() => imported ? prepareImported2D(analysisPayload.sourceGeometry || analysisPayload.canonicalGeometry, analysisPayload.plane) : null, [imported, analysisPayload]);
+  const [anchors, setAnchors] = useState({});
+  const [specConfirmed, setSpecConfirmed] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { setAnchors(importedRoute?.anchors || {}); setSpecConfirmed(false); setError(''); setResults(null); }, [importedRoute]);
   const [shape, setShape] = useState('L-Shape');
-  // Default values assumed in Imperial (ft). We'll treat UI values as current unit system.
+  // Store geometry in feet regardless of display units.
   const [geom, setGeom] = useState({ Vx: 25, Vy: 16.5, Vx1: 15, Vx2: 10, L: 100, W: 10, H: 10 });
   const [results, setResults] = useState(null);
 
-  const updateGeom = (k, v) => setGeom(s => ({...s, [k]: Number(v)}));
+  const displayGeom = Object.fromEntries(Object.entries(geom).map(([k,v]) => [k, unitSystem === 'Metric' ? ImperialToMetric.ft_to_m(v) : v]));
+  useEffect(() => { setResults(null); setSpecConfirmed(false); }, [globalInputs, methodology, engineeringDefaults]);
+  const updateGeom = (k, v) => { setGeom(s => ({...s, [k]: unitSystem === 'Metric' ? MetricToImperial.m_to_ft(Number(v)) : Number(v)})); setResults(null); markResultsStale(); };
+  const isBenchmark = isDirect2DBenchmarkPayload(analysisPayload, currentBenchmarkMock);
 
   const handleRun = () => {
     if (publishLoaded2DReportContext('manual-evaluate-direct-2d', { force: true })) {
       return;
     }
 
-    // PRE-PROCESSOR: Convert UI geometric values down to engine Imperial if currently Metric
-    const engineGeom = { ...geom };
-    if (unitSystem === 'Metric') {
-      // 2D UI operates in meters if metric, ft if imperial.
-      // Our existing pre-processor `MetricToImperial.m_to_ft` does this.
-      Object.keys(engineGeom).forEach(k => {
-        engineGeom[k] = MetricToImperial.m_to_ft(geom[k]);
-      });
+    setError('');
+    if (!imported && Object.values(geom).some(value => !Number.isFinite(value) || value <= 0)) { setError('Enter positive profile dimensions.'); return; }
+    if (imported && (!importedAnchorsReady(importedRoute, anchors) || !specConfirmed)) {
+      setError(importedRoute?.reason || 'Select both endpoint anchors and confirm the uniform piping specification.');
+      return;
     }
+    const engineGeom = { ...geom };
 
     // Translate the 2D geometric inputs into the standard nodes/segments payload for ExtendedSolver
     let nodes = [];
     let segments = [];
-    let anchors = { anchor1: 'n1' };
+    let selectedAnchors = { anchor1: 'n1' };
 
-    if (shape === 'L-Shape') {
+    if (imported) {
+      nodes = importedRoute.nodes;
+      segments = importedRoute.segments;
+      selectedAnchors = anchors;
+    } else if (shape === 'L-Shape') {
       nodes = [
         { id: 'n1', x: 0, y: 0, z: 0 },
         { id: 'n2', x: engineGeom.Vx, y: 0, z: 0 },
@@ -331,7 +306,7 @@ export default function Bundle2DSolverView() {
         { id: 's1', startNodeId: 'n1', endNodeId: 'n2' },
         { id: 's2', startNodeId: 'n2', endNodeId: 'n3' }
       ];
-      anchors.anchor2 = 'n3';
+      selectedAnchors.anchor2 = 'n3';
     } else if (shape === 'Z-Shape') {
       nodes = [
         { id: 'n1', x: 0, y: 0, z: 0 },
@@ -344,16 +319,17 @@ export default function Bundle2DSolverView() {
         { id: 's2', startNodeId: 'n2', endNodeId: 'n3' },
         { id: 's3', startNodeId: 'n3', endNodeId: 'n4' }
       ];
-      anchors.anchor2 = 'n4';
+      selectedAnchors.anchor2 = 'n4';
     } else if (shape === 'U-Loop') {
-      const halfL = engineGeom.L / 2;
+      if (engineGeom.W >= engineGeom.L) return setError('Loop width must be smaller than the anchor distance.');
+      const straightLeg = (engineGeom.L - engineGeom.W) / 2; // Split the remaining span in feet evenly.
       nodes = [
         { id: 'n1', x: 0, y: 0, z: 0 },
-        { id: 'n2', x: halfL, y: 0, z: 0 },
-        { id: 'n3', x: halfL, y: engineGeom.H, z: 0 },
-        { id: 'n4', x: halfL + engineGeom.W, y: engineGeom.H, z: 0 },
-        { id: 'n5', x: halfL + engineGeom.W, y: 0, z: 0 },
-        { id: 'n6', x: engineGeom.L + engineGeom.W, y: 0, z: 0 } // To ensure net distance is L (assuming W absorbs)
+        { id: 'n2', x: straightLeg, y: 0, z: 0 },
+        { id: 'n3', x: straightLeg, y: engineGeom.H, z: 0 },
+        { id: 'n4', x: straightLeg + engineGeom.W, y: engineGeom.H, z: 0 },
+        { id: 'n5', x: straightLeg + engineGeom.W, y: 0, z: 0 },
+        { id: 'n6', x: engineGeom.L, y: 0, z: 0 }
       ];
       segments = [
         { id: 's1', startNodeId: 'n1', endNodeId: 'n2' },
@@ -362,30 +338,34 @@ export default function Bundle2DSolverView() {
         { id: 's4', startNodeId: 'n4', endNodeId: 'n5' },
         { id: 's5', startNodeId: 'n5', endNodeId: 'n6' }
       ];
-      anchors.anchor2 = 'n6';
+      selectedAnchors.anchor2 = 'n6';
     }
 
-    // Pre-process global inputs if metric
-    const engineInputs = { ...globalInputs };
-    if (unitSystem === 'Metric') {
-      engineInputs.tOperate = MetricToImperial.C_to_F(globalInputs.tOperate);
-      engineInputs.corrosionAllowance = MetricToImperial.mm_to_in(globalInputs.corrosionAllowance);
-    }
+    const engineInputs = { ...globalInputs, frictionFactor: engineeringDefaults.rackFrictionFactor };
+    if (imported && Number.isFinite(analysisPayload.designTemperature_F)) engineInputs.tOperate = analysisPayload.designTemperature_F;
 
     // Mock an empty vessel so it skips MIST. Pass down methodology to trigger friction logic.
     const payload = {
-      nodes, segments, anchors, inputs: engineInputs, boundaryMovement: {x:0, y:0, z:0},
+      nodes, segments, anchors: selectedAnchors, inputs: engineInputs, boundaryMovement: {x:0, y:0, z:0},
       constraints: { maxStress: 20000 }, vessel: { vesselOD: 0, vesselThk: 0, nozzleRad: 0, designPress: 0, flangeClass: 150, momentArm: 0 },
-      methodology
+      methodology, shortDropLimit_ft: engineeringDefaults.shortDropLimit_ft
     };
 
     // Evaluate using the core mathematical engine
-    const res = runExtendedSolver(payload);
+    let res;
+    try { res = runExtendedSolver(payload); } catch (err) { setError(err.message); return; }
 
     // Tag the result with the active methodology so the UI can reflect the user's choice
     res.meta.methodologyUsed = methodology === '2D_BUNDLE' ? 'SIMPLIFIED_2D_METHOD' : 'FLUOR_GUIDED_CANTILEVER';
 
-    setResults(res);
+    const missingFlexibility = Object.entries(res.axes).filter(([, row]) => row.netDiff > 1e-9 && row.bendingLeg <= 1e-9);
+    missingFlexibility.forEach(([axis,row]) => {
+      row.status = 'NOT_QUALIFIED';
+      res.warnings.push(axis + '-axis has no effective flexibility leg; zero calculated stress is not a pass.');
+    });
+    const result = { ...res, methodId: 'GC_ANCHOR_GUIDE_3EI', formulaIds: ['GUIDED_CANTILEVER_F_3EID_OVER_L3', 'CANTILEVER_STRESS_M_OVER_Z'], status: missingFlexibility.length ? 'NOT_QUALIFIED' : Object.values(res.axes).some(row => row.status === 'FAIL') ? 'FAILED' : 'SCREENING_ONLY' };
+    setResults(result);
+    publishActiveReportContext({ moduleId: '2d-simplified-stress-check', title: '2D Simplified Calculation', input: payload, result, settings: engineeringDefaults });
   };
 
   return (
@@ -394,9 +374,16 @@ export default function Bundle2DSolverView() {
            {/* Left dock */}
            <div style={{ width: '360px', borderRight: '1px solid #1e293b', background: '#0f172a', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
               <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#94a3b8', borderBottom: '1px solid #1e293b', paddingBottom: '8px' }}>2D Loop Parameters</div>
+              {isBenchmark ? <div data-testid="2d-benchmark-loaded">Benchmark: {currentBenchmarkMock.id}<br /><button onClick={() => useAppStore.getState().clearBenchmarkMock()}>Return to project</button></div> : imported ? <div data-testid="imported-2d-model">
+                <strong>Imported {importedRoute?.plane || analysisPayload.plane} route</strong>
+                <p>{importedRoute?.nodes.length || 0} nodes · {importedRoute?.segments.length || 0} segments</p>
+                {!importedRoute?.ok && <p role="alert">{importedRoute?.reason}</p>}
+                {importedRoute?.ok && [1, 2].map(n => <label key={n} style={styles.row}>Anchor {n}<select data-testid={`imported-2d-anchor-${n}`} style={styles.input} value={anchors[`anchor${n}`] || ''} onChange={e => { setAnchors(a => ({ ...a, [`anchor${n}`]: e.target.value })); setResults(null); markResultsStale(); }}><option value="">Select endpoint</option>{importedRoute.anchorOptions.map(node => <option key={node.id} value={node.id}>{node.id}</option>)}</select></label>)}
+                <button type="button" onClick={() => useAppStore.getState().setAnalysisPayload(null)}>Use manual profile instead</button>
+              </div> : <>
               <div style={styles.row}>
                 <span>Profile Shape:</span>
-                <select style={{...styles.input, width: '120px'}} value={shape} onChange={e => {setShape(e.target.value); setResults(null);}}>
+                <select style={{...styles.input, width: '120px'}} value={shape} onChange={e => {setShape(e.target.value); setResults(null); markResultsStale();}}>
                   <option>L-Shape</option>
                   <option>Z-Shape</option>
                   <option>U-Loop</option>
@@ -407,27 +394,28 @@ export default function Bundle2DSolverView() {
                 <div style={{ fontSize: '12px', color: '#38bdf8', marginBottom: '8px', fontWeight: 'bold' }}>Geometry ({getUnitLabel(unitSystem, 'length')})</div>
                 {shape === 'L-Shape' && (
                   <>
-                    <div style={styles.row}><span>Leg X (Vx):</span> <input type="number" style={styles.input} value={geom.Vx} onChange={e => updateGeom('Vx', e.target.value)} /></div>
-                    <div style={styles.row}><span>Leg Y (Vy):</span> <input type="number" style={styles.input} value={geom.Vy} onChange={e => updateGeom('Vy', e.target.value)} /></div>
+                    <div style={styles.row}><span>Leg X (Vx):</span> <input type="number" style={styles.input} value={displayGeom.Vx} onChange={e => updateGeom('Vx', e.target.value)} /></div>
+                    <div style={styles.row}><span>Leg Y (Vy):</span> <input type="number" style={styles.input} value={displayGeom.Vy} onChange={e => updateGeom('Vy', e.target.value)} /></div>
                   </>
                 )}
                 {shape === 'Z-Shape' && (
                   <>
-                    <div style={styles.row}><span>Leg X1 (Vx1):</span> <input type="number" style={styles.input} value={geom.Vx1} onChange={e => updateGeom('Vx1', e.target.value)} /></div>
-                    <div style={styles.row}><span>Leg X2 (Vx2):</span> <input type="number" style={styles.input} value={geom.Vx2} onChange={e => updateGeom('Vx2', e.target.value)} /></div>
-                    <div style={styles.row}><span>Offset Leg (Vy):</span> <input type="number" style={styles.input} value={geom.Vy} onChange={e => updateGeom('Vy', e.target.value)} /></div>
+                    <div style={styles.row}><span>Leg X1 (Vx1):</span> <input type="number" style={styles.input} value={displayGeom.Vx1} onChange={e => updateGeom('Vx1', e.target.value)} /></div>
+                    <div style={styles.row}><span>Leg X2 (Vx2):</span> <input type="number" style={styles.input} value={displayGeom.Vx2} onChange={e => updateGeom('Vx2', e.target.value)} /></div>
+                    <div style={styles.row}><span>Offset Leg (Vy):</span> <input type="number" style={styles.input} value={displayGeom.Vy} onChange={e => updateGeom('Vy', e.target.value)} /></div>
                   </>
                 )}
                 {shape === 'U-Loop' && (
                   <>
-                    <div style={styles.row}><span>Anchor Dist (L):</span> <input type="number" style={styles.input} value={geom.L} onChange={e => updateGeom('L', e.target.value)} /></div>
-                    <div style={styles.row}><span>Loop Height (H):</span> <input type="number" style={styles.input} value={geom.H} onChange={e => updateGeom('H', e.target.value)} /></div>
-                    <div style={styles.row}><span>Loop Width (W):</span> <input type="number" style={styles.input} value={geom.W} onChange={e => updateGeom('W', e.target.value)} /></div>
+                    <div style={styles.row}><span>Anchor Dist (L):</span> <input type="number" style={styles.input} value={displayGeom.L} onChange={e => updateGeom('L', e.target.value)} /></div>
+                    <div style={styles.row}><span>Loop Height (H):</span> <input type="number" style={styles.input} value={displayGeom.H} onChange={e => updateGeom('H', e.target.value)} /></div>
+                    <div style={styles.row}><span>Loop Width (W):</span> <input type="number" style={styles.input} value={displayGeom.W} onChange={e => updateGeom('W', e.target.value)} /></div>
                   </>
                 )}
               </div>
 
-              <div style={{ background: '#1e293b', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
+              </>}
+              {!isBenchmark && <div style={{ background: '#1e293b', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
                  <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px', fontWeight: 'bold' }}>Piping Spec (Global)</div>
                  <div style={styles.row}>
                    <span>Material:</span>
@@ -449,11 +437,18 @@ export default function Bundle2DSolverView() {
                  </div>
                  <div style={styles.row}>
                    <span>Temp ({getUnitLabel(unitSystem, 'temp')}):</span>
-                   <input type="number" style={styles.input} value={globalInputs.tOperate} onChange={e => useExtendedStore.getState().updateInput('tOperate', Number(e.target.value))} />
+                   <input type="number" style={styles.input} value={unitSystem === 'Metric' ? ImperialToMetric.F_to_C(imported && Number.isFinite(analysisPayload.designTemperature_F) ? analysisPayload.designTemperature_F : globalInputs.tOperate) : imported && Number.isFinite(analysisPayload.designTemperature_F) ? analysisPayload.designTemperature_F : globalInputs.tOperate} disabled={imported && Number.isFinite(analysisPayload.designTemperature_F)} onChange={e => useExtendedStore.getState().updateInput('tOperate', unitSystem === 'Metric' ? MetricToImperial.C_to_F(Number(e.target.value)) : Number(e.target.value))} />
                  </div>
-              </div>
+                {imported && <label><input data-testid="imported-2d-confirm-spec" type="checkbox" checked={specConfirmed} onChange={e => {
+                  setSpecConfirmed(e.target.checked);
+                  if (e.target.checked) return;
+                  setResults(null);
+                  markResultsStale();
+                }} /> Confirm this uniform pipe specification applies to the imported route.</label>}
+              </div>}
+              {error && <p role="alert">{error}</p>}
 
-              <button onClick={handleRun} style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', padding: '12px', fontWeight: 'bold', cursor: 'pointer', marginTop: 'auto' }}>
+              <button data-testid="run-2d-calculation" disabled={imported && (!importedAnchorsReady(importedRoute, anchors) || !specConfirmed)} onClick={handleRun} style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', padding: '12px', fontWeight: 'bold', cursor: 'pointer', marginTop: 'auto' }}>
                 EVALUATE 2D PROFILE ►
               </button>
            </div>
@@ -461,13 +456,13 @@ export default function Bundle2DSolverView() {
            {/* Right viewport */}
            <div style={{ flex: 1, background: '#020617', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #1e293b' }}>
-                 <Schematic2D shape={shape} inputs={geom} onUpdate={updateGeom} />
+                 {isBenchmark ? <div data-testid="2d-benchmark-result">{benchmarkResult ? <><h3>{benchmarkResult.methodId} — {benchmarkResult.status}</h3><dl>{Object.entries(benchmarkResult.outputs || benchmarkResult.results || {}).map(([key,value]) => <React.Fragment key={key}><dt>{key}</dt><dd>{typeof value === 'number' ? value.toPrecision(8) : String(value)}</dd></React.Fragment>)}</dl></> : 'Awaiting benchmark evaluation'}</div> : imported ? <div><h3>Imported route coordinates (ft)</h3><table><thead><tr><th>Node</th><th>X</th><th>Y</th><th>Z</th></tr></thead><tbody>{importedRoute.nodes.map(node => <tr key={node.id}><td>{node.id}</td><td>{node.x.toFixed(3)}</td><td>{node.y.toFixed(3)}</td><td>{node.z.toFixed(3)}</td></tr>)}</tbody></table></div> : <Schematic2D shape={shape} inputs={displayGeom} onUpdate={updateGeom} />}
               </div>
 
-              {results && (
-                <div style={{ padding: '24px', minHeight: '300px' }}>
+              {results && !isBenchmark && (
+                <div data-testid="2d-calculation-results" style={{ padding: '24px', minHeight: '300px' }}>
                   <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>
-                    Evaluation Results
+                    Evaluation Results — {results.status}
                     <span style={{ marginLeft: '12px', color: '#10b981', fontSize: '12px' }}>— Method: {results.meta.methodologyUsed}</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', background: '#0f172a', borderRadius: '8px', overflow: 'hidden' }}>
@@ -482,7 +477,7 @@ export default function Bundle2DSolverView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {['X', 'Y'].map(axis => {
+                      {['X', 'Y', 'Z'].map(axis => {
                         const row = results.axes[axis];
                         if (!row || row.netDiff === 0) return null;
                         return (
@@ -494,7 +489,7 @@ export default function Bundle2DSolverView() {
                             <td style={{ padding: '12px', borderBottom: '1px solid #1e293b', fontSize: '14px' }}>{formatUnit(unitSystem, 'pressure', row.stress, 0)}</td>
                             <td style={{ padding: '12px', borderBottom: '1px solid #1e293b', fontSize: '14px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <RatioBar ratio={row.ratio || (row.status === 'FAIL' ? 1.5 : 0.5)} />
+                                <RatioBar ratio={row.maxStress > 0 ? row.stress / row.maxStress : 0} />
                                 <span style={styles.statusBadge(row.status === 'PASS')}>{row.status}</span>
                               </div>
                             </td>
@@ -503,6 +498,7 @@ export default function Bundle2DSolverView() {
                       })}
                     </tbody>
                   </table>
+                  {results.warnings?.map((warning, i) => <p key={i} style={{color:'#fbbf24'}}>{String(warning)}</p>)}
                   <FormulaTracePanel formulaTrace={results.formulaTrace} />
                 </div>
               )}

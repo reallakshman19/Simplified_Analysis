@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { pcfToCanonicalGeometry } from '../core/geometry/adapters/pcfToCanonicalGeometry';
 import { DEFAULT_TAB_ID, isSimplifiedTabId } from '../config/uiTabs';
+import { selectCanonicalSegments } from '../core/geometry/adapters/selectCanonicalSegments.js';
+import { buildBenchmarkLoadState } from '../benchmarking/benchmarkLaunch.js';
+import { DEFAULT_ENGINEERING_SETTINGS } from '../data/engineeringDefaults/defaults.js';
 
 const emptyCanonicalGeometry = Object.freeze({
   schemaVersion: 'canonical-geometry-v1',
@@ -59,20 +62,7 @@ export const useAppStore = create(persist((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: isSimplifiedTabId(tab) ? tab : DEFAULT_TAB_ID }),
 
 
-  engineeringDefaults: {
-    projectUnitSystem: 'imperial',
-    defaultLengthUnit: 'ft',
-    defaultForceUnit: 'lbf',
-    defaultStressUnit: 'psi',
-    pipeDataSource: 'internal-screening-db',
-    materialDataSource: 'internal-screening-db',
-    rackFrictionFactor: 0.3,
-    rackSpacingMargin: 75,
-    shortDropLimit_ft: 3.0,
-    allowPlaceholderLoads: false,
-    reportTimestampPolicy: 'exclude-from-deterministic-hash',
-    benchmarkCertificationRequired: true
-  },
+  engineeringDefaults: { ...DEFAULT_ENGINEERING_SETTINGS },
   resultsStale: false,
   currentBenchmarkMock: null,
   setEngineeringDefault: (key, value) => set((state) => ({
@@ -85,12 +75,9 @@ export const useAppStore = create(persist((set, get) => ({
   })),
   markResultsStale: () => set({ resultsStale: true }),
   clearResultsStale: () => set({ resultsStale: false }),
-  loadBenchmarkMock: (mock) => set({
-    currentBenchmarkMock: mock || null,
-    activeTab: isSimplifiedTabId(mock?.loadTargetTab) ? mock.loadTargetTab : get().activeTab,
-    analysisPayload: mock?.benchmarkInput || get().analysisPayload,
-    resultsStale: true
-  }),
+  loadBenchmarkMock: (mock) => set(buildBenchmarkLoadState(mock)),
+  clearBenchmarkMock: () => set({ currentBenchmarkMock: null, analysisPayload: null, resultsStale: true }),
+
 
   components: [],
   canonicalGeometry: emptyCanonicalGeometry,
@@ -103,10 +90,12 @@ export const useAppStore = create(persist((set, get) => ({
     canonicalGeometry: canonicalGeometry || emptyCanonicalGeometry,
     activeCanonicalGeometry: canonicalGeometry || emptyCanonicalGeometry,
     geometryDiagnostics: canonicalGeometry?.diagnostics || [],
+    resultsStale: true, currentBenchmarkMock: null, analysisPayload: null,
   }),
   setActiveCanonicalGeometry: (canonicalGeometry) => set({
     activeCanonicalGeometry: canonicalGeometry || emptyCanonicalGeometry,
     geometryDiagnostics: canonicalGeometry?.diagnostics || [],
+    resultsStale: true, currentBenchmarkMock: null, analysisPayload: null,
   }),
   setTransform2DPayload: (payload) => set({ transform2dPayload: payload || emptyTransform2D }),
   setSimplifiedGeometry: (payload) => set({ simplifiedGeometry: payload || emptySimplified2D }),
@@ -114,6 +103,7 @@ export const useAppStore = create(persist((set, get) => ({
     sketcherGeometry: canonicalGeometry || emptyCanonicalGeometry,
     activeCanonicalGeometry: canonicalGeometry || emptyCanonicalGeometry,
     geometryDiagnostics: canonicalGeometry?.diagnostics || [],
+    resultsStale: true, currentBenchmarkMock: null, analysisPayload: null,
   }),
   setComponents: (comps) => {
     const components = Array.isArray(comps) ? comps : [];
@@ -123,6 +113,8 @@ export const useAppStore = create(persist((set, get) => ({
       canonicalGeometry,
       activeCanonicalGeometry: canonicalGeometry,
       geometryDiagnostics: canonicalGeometry.diagnostics || [],
+      selectedIds: new Set(),
+      resultsStale: true, currentBenchmarkMock: null, analysisPayload: null,
     });
   },
   getSelectedComponents: () => {
@@ -130,8 +122,9 @@ export const useAppStore = create(persist((set, get) => ({
     return state.components.filter((component) => state.selectedIds.has(component.id));
   },
   getSelectedCanonicalGeometry: () => {
-    const selected = get().getSelectedComponents();
-    return buildCanonicalSafe(selected, 'pcf-selection');
+    const state = get();
+    if (state.activeCanonicalGeometry?.source === 'sketcher') return selectCanonicalSegments(state.activeCanonicalGeometry, state.selectedIds);
+    return buildCanonicalSafe(state.getSelectedComponents(), 'pcf-selection');
   },
 
   pcfText: '',
@@ -149,7 +142,7 @@ export const useAppStore = create(persist((set, get) => ({
       };
     });
     const canonicalGeometry = buildCanonicalSafe(components, 'pcf');
-    return { components, canonicalGeometry, activeCanonicalGeometry: canonicalGeometry, geometryDiagnostics: canonicalGeometry.diagnostics || [] };
+    return { components, canonicalGeometry, activeCanonicalGeometry: canonicalGeometry, geometryDiagnostics: canonicalGeometry.diagnostics || [], resultsStale: true, currentBenchmarkMock: null, analysisPayload: null };
   }),
   updateComponentPoint: (index, ptIndex, prop, value) => set((state) => {
     const components = state.components.map((component, componentIndex) => {
@@ -160,7 +153,7 @@ export const useAppStore = create(persist((set, get) => ({
       return { ...component, points };
     });
     const canonicalGeometry = buildCanonicalSafe(components, 'pcf');
-    return { components, canonicalGeometry, activeCanonicalGeometry: canonicalGeometry, geometryDiagnostics: canonicalGeometry.diagnostics || [] };
+    return { components, canonicalGeometry, activeCanonicalGeometry: canonicalGeometry, geometryDiagnostics: canonicalGeometry.diagnostics || [], resultsStale: true, currentBenchmarkMock: null, analysisPayload: null };
   }),
 
   selectedIds: new Set(),
@@ -222,7 +215,7 @@ export const useAppStore = create(persist((set, get) => ({
 
   // Store the actual 2D payload to send to the analysis canvas
   analysisPayload: null,
-  setAnalysisPayload: (payload) => set({ analysisPayload: payload }),
+  setAnalysisPayload: (payload) => set({ analysisPayload: payload, currentBenchmarkMock: null, resultsStale: true }),
 
   // Store batch of geometries for analysis
   batchAnalysisData: [],
@@ -232,7 +225,8 @@ export const useAppStore = create(persist((set, get) => ({
   activeReportContext: null,
   reportContextSequence: 0,
   setActiveReportContext: (context) => set((state) => ({
-    activeReportContext: context,
+    activeReportContext: context ? structuredClone(context) : null,
+    resultsStale: false,
     reportContextSequence: state.reportContextSequence + 1,
   })),
   clearActiveReportContext: () => set({ activeReportContext: null }),

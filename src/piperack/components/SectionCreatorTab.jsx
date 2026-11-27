@@ -5,6 +5,7 @@ import { generateSectionLayout } from '../solver/AdvancedLayoutSolver';
 import { formatUnit } from '../../calc-extended/utils/units';
 import SectionCanvas from './SectionCanvas';
 import SectionMiniMap from './SectionMiniMap';
+import { readFiniteNumber } from '../../core/solvers/readFiniteNumber.js';
 
 const styles = {
     overlay: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: '#020617', zIndex: 1000, display: 'flex', flexDirection: 'column' },
@@ -19,7 +20,8 @@ const styles = {
 
 export default function SectionCreatorTab() {
     const { isSectionCreatorOpen, toggleSectionCreator, lines, globalSettings, structuralSettings, setSectionLayout, movePipeTier, addTier, logStream } = usePipeRackStore();
-    const unitSystem = useAppStore(s => s.unitSystem);
+    const unitSystem = useAppStore(s => s.engineeringDefaults.projectUnitSystem === 'metric' ? 'Metric' : 'Imperial');
+    const clearanceMm = readFiniteNumber(useAppStore(s => s.engineeringDefaults.rackSpacingMargin));
     const [terminalOpen, setTerminalOpen] = useState(true);
     const [summaryOpen, setSummaryOpen] = useState(true);
     const [spacingOpen, setSpacingOpen] = useState(true);
@@ -39,18 +41,19 @@ export default function SectionCreatorTab() {
 
     // Derive sectionLayout dynamically
     const sectionLayout = React.useMemo(() => {
-        if (!isSectionCreatorOpen) return null;
-        const layout = generateSectionLayout(lines, globalSettings, structuralSettings);
+        if (!isSectionCreatorOpen || clearanceMm == null || clearanceMm < 0) return null;
+        const layout = generateSectionLayout(lines, globalSettings, { ...structuralSettings, rackSpacingMargin: clearanceMm });
         if (liveDragState) {
             layout.layout = layout.layout.map(l =>
                 l.id === liveDragState.id ? { ...l, x_mm: liveDragState.x_mm } : l
             );
         }
         return layout;
-    }, [isSectionCreatorOpen, lines, globalSettings, structuralSettings, liveDragState]);
+    }, [isSectionCreatorOpen, lines, globalSettings, structuralSettings, liveDragState, clearanceMm]);
 
     // Update store safely without React render phase warnings
     useEffect(() => {
+        if (isSectionCreatorOpen && !sectionLayout) setSectionLayout(null);
         if (isSectionCreatorOpen && sectionLayout) {
             setSectionLayout(sectionLayout);
 
@@ -91,6 +94,12 @@ export default function SectionCreatorTab() {
     }, [isResizingPlan]);
 
     if (!isSectionCreatorOpen) return null;
+    if (!sectionLayout) return (
+        <div style={{ ...styles.overlay, padding: 24, color: '#f8fafc', alignItems: 'flex-start' }}>
+            <p role="alert">Set a finite, non-negative rack spacing margin in Settings before opening the designer.</p>
+            <button type="button" style={styles.closeBtn} onClick={() => toggleSectionCreator(false)}>Close Designer</button>
+        </div>
+    );
 
     return (
         <div style={{ ...styles.overlay, cursor: isResizingPlan ? 'col-resize' : 'default' }}>
@@ -191,7 +200,7 @@ export default function SectionCreatorTab() {
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', fontSize: '12px', alignItems: 'center' }}>
                                 <span style={{ color: '#94a3b8' }}>Default Spacing (mm):</span>
-                                <input type="number" style={{ width: '60px', background: '#0f172a', color: '#fff', border: '1px solid #334155', padding: '4px', borderRadius: '4px' }} value={75} readOnly />
+                                <input type="number" style={{ width: '60px', background: '#0f172a', color: '#fff', border: '1px solid #334155', padding: '4px', borderRadius: '4px' }} value={clearanceMm} readOnly />
                             </div>
                         </>
                     )}
@@ -237,7 +246,7 @@ export default function SectionCreatorTab() {
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}>Base Gap (mm)</div>
-                                    <input type="number" style={{ width: '100%', background: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '4px 6px', fontSize: '11px' }} value={75} readOnly />
+                                    <input aria-label="Base Gap (mm)" type="number" style={{ width: '100%', background: '#0f172a', color: '#fff', border: '1px solid #334155', borderRadius: '4px', padding: '4px 6px', fontSize: '11px' }} value={clearanceMm} readOnly />
                                 </div>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}>Bowing Mult.</div>
@@ -269,6 +278,8 @@ export default function SectionCreatorTab() {
                                 width_mm={sectionLayout?.width_mm}
                                 cantilever_mm={sectionLayout?.cantilever_mm}
                                 tiers={sectionLayout?.tiers || {}}
+                                clearanceMm={sectionLayout.clearanceMm}
+                                bowingMultiplier={sectionLayout.bowingMultiplier}
                                 onLiveDrag={(id, x_mm) => setLiveDragState(id ? {id, x_mm} : null)}
                             />
                         </div>

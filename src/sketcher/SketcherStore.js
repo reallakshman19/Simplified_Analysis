@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useAppStore } from '../store/appStore';
 import { buildGraphFromComponents, buildComponentsFromGraph } from './GraphTranslator';
 import { sketcherToCanonicalGeometry, canonicalGeometryToSketcher } from '../core/geometry/adapters/sketcherToCanonicalGeometry';
 import { convertSelectedNodeToBend, convertSelectedNodeToTee, convertSelectedNodeToOlet, autoConnectPipes as autoConnectPipesCmd, validateSketchCommand } from './commands/professionalDraftingCommands.js';
@@ -639,12 +640,12 @@ export const useSketchStore = create((set, get) => ({
   importFromCanonicalGeometry: (geometry) => {
       get().saveSnapshot();
       const { nodes, segments, warnings } = canonicalGeometryToSketcher(geometry);
-      set({ nodes, segments, importWarnings: warnings || [] });
+      set({ nodes, segments, importWarnings: warnings || [], ...(Number.isFinite(geometry?.summary?.designTemperature_F) ? { designTemperature: geometry.summary.designTemperature_F } : {}) });
   },
 
   exportToCanonicalGeometry: () => {
-      const { nodes, segments, workingPlane } = get();
-      return sketcherToCanonicalGeometry(nodes, segments, { source: 'sketcher', unit: 'mm', plane: workingPlane });
+      const { nodes, segments, workingPlane, designTemperature } = get();
+      return sketcherToCanonicalGeometry(nodes, segments, { source: 'sketcher', unit: 'mm', plane: workingPlane, designTemperature_F: designTemperature });
   },
 
   exportToComponents: () => {
@@ -909,3 +910,10 @@ export const useSketchStore = create((set, get) => ({
 if (typeof window !== 'undefined' && window.__SIMPLIFIED_ANALYSIS_E2E__) {
   window.__SIMPLIFIED_ANALYSIS_SKETCHER_STORE__ = useSketchStore;
 }
+
+useSketchStore.subscribe((state, previous) => {
+  if (state.nodes === previous.nodes && state.segments === previous.segments && state.designTemperature === previous.designTemperature) return;
+  const app = useAppStore.getState();
+  app.markResultsStale();
+  if (app.analysisPayload?.source === 'sketcher') app.setAnalysisPayload(null);
+});

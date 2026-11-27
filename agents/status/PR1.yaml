@@ -1,0 +1,21 @@
+schema: AgentPrStatus.v1
+repository: reallakshman19/Simplified_Analysis
+pr_or_wip: PR1
+mission: Functional workflow recovery
+branch: fix/functional-workflows-20261125
+pr_head: 3b5c079f7ebc1fbb1a4abdeb7db9db8d30148a01
+main_head_last_checked: ac0df8f6ac33daf2ba07b6bb04ffd8e6a35a2bf7
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+agent_state: READY_FOR_REVIEW
+pr_recovery_state: HEALTHY
+handover_readiness: READY
+report_path: agents/PR1_workreport.md
+report_basis_head: 3b5c079f7ebc1fbb1a4abdeb7db9db8d30148a01
+appendix_a_status: NOT_REQUIRED
+grounding_epoch: GE-003
+current_stage: HANDOVER
+blocker: null
+highest_risk: Existing screening limitations and browser coverage outside CI
+exact_next_action: Review PR1 and passing certification runs
+last_updated: 2026-11-26

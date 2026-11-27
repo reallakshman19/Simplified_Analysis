@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useAppStore } from '../../store/appStore';
 
 export const PIPE_RACK_STATE_SCHEMA_VERSION = 'piperack-state-v1';
 const PIPE_RACK_STORAGE_KEY = 'simplified_calc_piperack_state_v1';
@@ -336,3 +337,16 @@ export const usePipeRackStore = create((set, get) => ({
 
   reset: () => set(initialState)
 }));
+
+usePipeRackStore.subscribe((state, previous) => {
+  if (state.lines !== previous.lines || state.globalSettings !== previous.globalSettings) {
+    useAppStore.getState().markResultsStale();
+    if (state.results && state.results === previous.results) usePipeRackStore.setState({ results: null });
+  } else if (state.results && previous.results && state.results !== previous.results) {
+    useAppStore.getState().markResultsStale();
+  }
+});
+
+useAppStore.subscribe((state, previous) => {
+  if (state.engineeringDefaults !== previous.engineeringDefaults && usePipeRackStore.getState().results) usePipeRackStore.setState({ results: null });
+});

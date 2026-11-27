@@ -18,7 +18,7 @@ export const MetricToImperial = {
 
 // UI Helper to render the correct label
 export const getUnitLabel = (unitSystem, type) => {
-  if (unitSystem === 'Imperial') {
+  if (projectDisplayUnit(unitSystem) === 'Imperial') {
     switch (type) {
       case 'length': return 'ft';
       case 'shortLength': return 'in';
@@ -42,7 +42,7 @@ export const getUnitLabel = (unitSystem, type) => {
 // UI Helper to format output display values
 export const formatUnit = (unitSystem, type, value, decimals = 2) => {
   if (value === undefined || value === null || isNaN(value)) return '-';
-  if (unitSystem === 'Imperial') {
+  if (projectDisplayUnit(unitSystem) === 'Imperial') {
     return Number(value).toFixed(decimals); // Backend is natively Imperial
   }
 
@@ -58,3 +58,20 @@ export const formatUnit = (unitSystem, type, value, decimals = 2) => {
   }
   return converted.toFixed(decimals);
 };
+
+// Display preference is independent of the Imperial engine storage contract.
+export const projectDisplayUnit = (projectUnitSystem) =>
+  ['metric', 'si'].includes(String(projectUnitSystem).toLowerCase()) ? 'Metric' : 'Imperial';
+
+export function inputFromDisplay(unitSystem, type, value) {
+  const n = Number(value);
+  if (unitSystem !== 'Metric') return n;
+  const conversions = { length: MetricToImperial.m_to_ft, shortLength: MetricToImperial.mm_to_in, temp: MetricToImperial.C_to_F, pressure: MetricToImperial.MPa_to_psi };
+  return conversions[type]?.(n) ?? n;
+}
+
+export function inputForDisplay(unitSystem, type, value) {
+  if (unitSystem !== 'Metric') return value;
+  const conversions = { length: ImperialToMetric.ft_to_m, shortLength: ImperialToMetric.in_to_mm, temp: ImperialToMetric.F_to_C, pressure: ImperialToMetric.psi_to_MPa };
+  return conversions[type]?.(value) ?? value;
+}

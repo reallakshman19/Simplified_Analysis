@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useAppStore } from '../../store/appStore';
+import { BenchmarkFixturePanel } from '../../benchmarking/BenchmarkFixturePanel';
 import RackInputsDock from './RackInputsDock';
 import RackVisualizer from './RackVisualizer';
 import RackResultsGrid from './RackResultsGrid';
@@ -13,6 +15,8 @@ const styles = {
 
 export default function PipeRackTab() {
   const [expanded, setExpanded] = useState(true);
+  const mock = useAppStore(state => state.currentBenchmarkMock);
+  if (mock?.launchMode === 'rack') return <BenchmarkFixturePanel mock={mock} />;
 
   return (
     <div style={styles.container}>

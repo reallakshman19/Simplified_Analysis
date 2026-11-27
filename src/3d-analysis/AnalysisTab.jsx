@@ -58,8 +58,8 @@ export const AnalysisTab = () => {
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', flexDirection: 'column', position: 'relative' }}>
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', position: 'relative' }}>
             <AnalysisCanvas />
-            <ComponentPanel />
 
             {/* Right-side Collapsible Results & Debug Panel */}
             <div
@@ -68,7 +68,7 @@ export const AnalysisTab = () => {
               position: 'absolute',
               top: '16px',
               right: '16px',
-              width: '450px',
+              width: 'min(450px, calc(100% - 32px))',
               maxHeight: 'calc(100% - 32px)',
               background: 'rgba(15, 23, 42, 0.9)',
               backdropFilter: 'blur(8px)',
@@ -101,6 +101,8 @@ export const AnalysisTab = () => {
                      <DebugConsole />
                 </div>
             </div>
+          </div>
+          <ComponentPanel />
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "engineering-benchmark-v2",
   "caseId": "UI-MOCK-LOAD-001",
-  "title": "UI mock load action metadata proof",
+  "title": "Benchmark load state transition (browser navigation verified separately)",
   "module": "ui-proof",
   "solverExport": "validateMockLoadActions",
   "methodId": "UI_MOCK_CATALOG_PROOF",
@@ -17,10 +17,9 @@
     ],
     "totalMockCards": 37,
     "mockLoadFailures": 0,
-    "activeTabChanged": true,
     "inputLoaded": true,
-    "benchmarkCaseIdVisible": true,
-    "currentInputMarkedAsBenchmarkMock": true
+    "currentInputMarkedAsBenchmarkMock": true,
+    "routePlanValid": true
   },
   "compare": {
     "mode": "rounded-zero-error",

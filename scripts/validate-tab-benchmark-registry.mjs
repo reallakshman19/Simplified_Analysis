@@ -82,7 +82,7 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('Tab benchmark registry validation passed: exactly nine rendered and qualified Simplified tabs.');
+console.log('Tab benchmark registry validation passed: nine tab declarations and recorded evidence reconciled; runtime not tested.');
 
 function compareOrdered(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {

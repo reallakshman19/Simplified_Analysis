@@ -1,0 +1,61 @@
+schema: AgentClaim.v1
+pr_or_wip: PR1
+claim_state: REVIEW
+files:
+  exact:
+    - .github/workflows/deploy.yml
+    - .github/workflows/release-candidate.yml
+    - .github/workflows/u0-certification.yml
+    - benchmarks/fixtures/ui-proof/UI-MOCK-LOAD-001.json
+    - e2e/benchmark-workflow.spec.js
+    - e2e/functional-workflows.spec.js
+    - package.json
+    - reports/benchmark-results.json
+    - scripts/full-check.mjs
+    - scripts/qa-check.mjs
+    - scripts/release-candidate-check.mjs
+    - scripts/syntax-check.mjs
+    - scripts/validate-tab-benchmark-registry.mjs
+    - src/3d-analysis/AnalysisStore.js
+    - src/3d-analysis/ConfigPanel.jsx
+    - src/3d-analysis/DebugTable.jsx
+    - src/3d-analysis/ModelContractPanel.jsx
+    - src/App.jsx
+    - src/benchmarking/BenchmarkFixturePanel.jsx
+    - src/benchmarking/TabQualificationBanner.jsx
+    - src/benchmarking/benchmarkLaunch.js
+    - src/benchmarking/executeBenchmarkFixture.js
+    - src/calc-extended/components/Bundle2DSolverView.jsx
+    - src/calc-extended/components/CalcExtendedTab.jsx
+    - src/calc-extended/components/ConfigDatabaseTab.jsx
+    - src/calc-extended/components/DashboardView.jsx
+    - src/calc-extended/components/GlobalDebugTab.jsx
+    - src/calc-extended/solver/ExtendedSolver.js
+    - src/calc-extended/solver/imported2DWorkflow.js
+    - src/calc-extended/store/useExtendedStore.js
+    - src/calc-extended/utils/units.js
+    - src/components/BenchmarksValidationTab.jsx
+    - src/components/ErrorBoundary.jsx
+    - src/components/Viewer3DTab.jsx
+    - src/core/geometry/adapters/pcfToCanonicalGeometry.js
+    - src/core/geometry/adapters/selectCanonicalSegments.js
+    - src/core/geometry/adapters/sketcherToCanonicalGeometry.js
+    - src/mocks/benchmarkFixtureInputs.js
+    - src/mocks/engineeringMockCatalog.js
+    - src/piperack/components/PipeRackTab.jsx
+    - src/piperack/components/RackInputsDock.jsx
+    - src/piperack/components/RackResultsGrid.jsx
+    - src/piperack/components/RackVisualizer.jsx
+    - src/piperack/components/SectionCreatorTab.jsx
+    - src/piperack/store/usePipeRackStore.js
+    - src/reporting/index.js
+    - src/reporting/publishActiveReportContext.js
+    - src/settings/SettingsTab.jsx
+    - src/sketcher/SketcherStore.js
+    - src/sketcher/SketcherTab.jsx
+    - src/store/appStore.js
+    - tests/functional-workflows.test.js
+  prefixes: []
+authority_domains: [geometry-transfer, settings, navigation, solver-input-and-result-publication, functional-verification]
+claim_modes: [COORDINATED]
+last_verified_head: 3b5c079f7ebc1fbb1a4abdeb7db9db8d30148a01

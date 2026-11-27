@@ -5,10 +5,11 @@ import * as THREE from 'three';
 import { useSpring, animated as _animated } from '@react-spring/three';
 import { useDrag } from '@use-gesture/react';
 import { usePipeRackStore } from '../store/usePipeRackStore';
+import { calculateRackPipeSpacing } from '../../core/solvers/piperack/solveRackLayout.js';
 
 const scale = 0.01;
 
-const InteractionManager = ({ layout, activeId, setActiveId, setGhostData, isMeasureMode, measurePts, setMeasurePts, onLiveDrag }) => {
+const InteractionManager = ({ layout, activeId, setActiveId, setGhostData, isMeasureMode, measurePts, setMeasurePts, onLiveDrag, clearanceMm, bowingMultiplier }) => {
     const { camera, raycaster, pointer } = useThree();
     const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), []);
 
@@ -47,20 +48,7 @@ const InteractionManager = ({ layout, activeId, setActiveId, setGhostData, isMea
                     // Calculate required spacing (S_pipe) between active and neighbor
                     let s_required = null;
                     if (nearestNeighbor) {
-                        const active_ins = activePipe.insulationThk || 0;
-                        const active_od = activePipe.OD_in * 25.4;
-                        const active_flg = activePipe.flgRad_in * 25.4;
-
-                        const neigh_ins = nearestNeighbor.insulationThk || 0;
-                        const neigh_od = nearestNeighbor.OD_in * 25.4;
-                        const neigh_flg = nearestNeighbor.flgRad_in * 25.4;
-
-                        const physGap = (active_od/2) + active_ins + (neigh_od/2) + neigh_ins;
-                        const flgAllow = (activePipe.stagger && nearestNeighbor.stagger) ? Math.max(active_flg, neigh_flg) : (active_flg + neigh_flg);
-                        const bowing = Math.max(activePipe.delta_in, nearestNeighbor.delta_in) * 25.4 * 0.15;
-                        const standardGap = 75;
-
-                        s_required = physGap + flgAllow + bowing + standardGap;
+                        s_required = calculateRackPipeSpacing(nearestNeighbor, activePipe, clearanceMm, bowingMultiplier).spacing;
 
                         // Terminal Logging for Deep Architect Compliance
                         if (minDistance < s_required) {
@@ -272,7 +260,8 @@ const PipeCrossSection = ({ line, onStartDrag }) => {
     );
 };
 
-export default function SectionCanvas({ isMeasureMode, layout, width_mm, cantilever_mm, tiers, onLiveDrag }) {
+/** Draw the rack section and check drag spacing using the same clearance as the layout. */
+export default function SectionCanvas({ isMeasureMode, layout, width_mm, cantilever_mm, tiers, onLiveDrag, clearanceMm, bowingMultiplier }) {
     const { setPipeManualPosition, pushLog } = usePipeRackStore();
 
     // Interaction State
@@ -338,7 +327,7 @@ export default function SectionCanvas({ isMeasureMode, layout, width_mm, cantile
             <directionalLight position={[100, 200, 100]} intensity={1.5} castShadow />
             <OrbitControls target={[0, topY / 2, 0]} enableRotate={false} />
 
-            <InteractionManager layout={layout} activeId={activeId} setActiveId={finalizeDrag} setGhostData={setGhostData} isMeasureMode={isMeasureMode} measurePts={measurePts} setMeasurePts={setMeasurePts} onLiveDrag={onLiveDrag} />
+            <InteractionManager layout={layout} activeId={activeId} setActiveId={finalizeDrag} setGhostData={setGhostData} isMeasureMode={isMeasureMode} measurePts={measurePts} setMeasurePts={setMeasurePts} onLiveDrag={onLiveDrag} clearanceMm={clearanceMm} bowingMultiplier={bowingMultiplier} />
 
             {/* Measure Overlay */}
             {isMeasureMode && measurePts.length === 2 && (

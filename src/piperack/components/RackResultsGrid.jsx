@@ -13,7 +13,9 @@ import { exportJsonSnapshot } from '../../core/reporting/exportJsonSnapshot';
 
 export default function RackResultsGrid({ expanded, onToggle }) {
   const { results, lines, globalSettings, structuralSettings } = usePipeRackStore();
-  const unitSystem = useAppStore(state => state.unitSystem);
+  const resultsStale = useAppStore(state => state.resultsStale);
+  const unitSystem = useAppStore(state => state.engineeringDefaults.projectUnitSystem === 'metric' ? 'Metric' : 'Imperial');
+  const blockingDiagnostics = results?.diagnostics?.filter(({ severity }) => severity === 'ERROR') ?? [];
 
   const buildReport = () => createCalculationReport({
     title: 'Pipe Rack Calculation Report',
@@ -25,12 +27,12 @@ export default function RackResultsGrid({ expanded, onToggle }) {
 
   const handleExportMarkdown = (event) => {
     event.stopPropagation();
-    if (results) exportMarkdownReport(buildReport(), 'pipe-rack-calculation-report.md');
+    if (results && !resultsStale) exportMarkdownReport(buildReport(), 'pipe-rack-calculation-report.md');
   };
 
   const handleExportJson = (event) => {
     event.stopPropagation();
-    if (results) exportJsonSnapshot(buildReport(), 'pipe-rack-calculation-report.json');
+    if (results && !resultsStale) exportJsonSnapshot(buildReport(), 'pipe-rack-calculation-report.json');
   };
 
   return (
@@ -38,8 +40,10 @@ export default function RackResultsGrid({ expanded, onToggle }) {
       <div style={styles.header} onClick={onToggle}>
         <span style={{ marginRight: '8px' }}>{expanded ? '▼' : '▶'}</span>
         Pipe Rack Analysis Data
+        {results && resultsStale && <span style={{color:'#fbbf24'}}>STALE — recalculate before export</span>}
+        {results && <span data-testid="pipe-rack-result-status" style={{ marginLeft: '12px' }}>{results.status}</span>}
         {results && <span style={{ marginLeft: '12px', color: '#10b981', fontSize: '12px' }}>— Method: {results.methodologyUsed}</span>}
-        {results && (
+        {results && !resultsStale && (
           <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
             <button onClick={handleExportMarkdown} style={{ background: '#334155', color: '#e2e8f0', border: '1px solid #475569', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Export MD</button>
             <button onClick={handleExportJson} style={{ background: '#334155', color: '#e2e8f0', border: '1px solid #475569', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Export JSON</button>
@@ -49,8 +53,13 @@ export default function RackResultsGrid({ expanded, onToggle }) {
 
       <div style={{ flex: 1, overflowY: 'auto', display: expanded ? 'block' : 'none' }}>
         {!results && <div style={{color: '#64748b'}}>Awaiting loop calculation...</div>}
+        {blockingDiagnostics.length > 0 && (
+          <div role="alert" style={{ color: '#fca5a5', paddingBottom: '8px' }}>
+            {blockingDiagnostics.map(({ code, message }, index) => <div key={code + '-' + index}>{message}</div>)}
+          </div>
+        )}
 
-        {results && (
+        {results?.lines.length > 0 && (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: '#1e293b', color: '#94a3b8', textAlign: 'left' }}>
@@ -74,7 +83,7 @@ export default function RackResultsGrid({ expanded, onToggle }) {
                 <td style={{ padding: '8px' }}>{line.sizeNps}"</td>
                 <td style={{ padding: '8px' }}>{formatUnit(unitSystem, 'temp', line.tOperate, 1)}</td>
                 <td style={{ padding: '8px' }}>{formatUnit(unitSystem, 'shortLength', line.deltaIn, 2)}</td>
-                <td style={{ padding: '8px', color: '#a78bfa' }}>{line.loopOrder.toFixed(1)}</td>
+                <td style={{ padding: '8px', color: '#a78bfa' }}>{Number.isFinite(line.loopOrder) ? line.loopOrder.toFixed(1) : '—'}</td>
                 <td style={{ padding: '8px' }}>
                   {line.nestingPosition === 1 ? 'Outermost (1)' : line.nestingPosition === results.lines.length ? `Innermost (${line.nestingPosition})` : `Pos ${line.nestingPosition}`}
                 </td>

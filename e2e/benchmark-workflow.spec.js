@@ -10,6 +10,7 @@ test.describe('Benchmark mock workflow proof', () => {
     await expect(page.getByTestId('benchmark-card-2D-CANT-001')).toBeVisible();
 
     await page.getByTestId('load-benchmark-2D-CANT-001').click();
+    await expect(page.getByTestId('2d-benchmark-result')).toContainText('120000');
     await page.getByTestId('nav-tab-benchmarks').click();
     await expect(page.getByTestId('current-benchmark-mock')).toContainText('2D-CANT-001');
 
@@ -17,8 +18,8 @@ test.describe('Benchmark mock workflow proof', () => {
     await expect(page.getByTestId('reports-tab')).toBeVisible();
     const preview = page.getByTestId('report-preview');
     await expect(preview).toContainText('Method ID: CANTILEVER_END_LOAD');
-    await expect(preview).toContainText('Formula ID(s): REPORT_MARKDOWN_CALC_SHEET');
-    await expect(preview).toContainText('Unit system: imperial');
+    await expect(preview).toContainText('Formula ID(s): CANTILEVER_M_PL');
+    await expect(preview).toContainText('Unit system: {"length":"in"');
     await expect(preview).toContainText('Benchmark status: MOCK_LOADED');
   });
 });

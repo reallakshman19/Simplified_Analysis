@@ -1,17 +1,8 @@
 import { benchmarkFixtureInputs } from './benchmarkFixtureInputs.js';
 import { latestBenchmarkStatus } from './latestBenchmarkStatus.js';
 
-const targetForModule = {
-  '2d-simplified-stress-check': 'simpAnalysis',
-  '2d-math': 'simpAnalysis',
-  '3d-guided-cantilever': '3d-analysis',
-  'gc3d-core': '3d-analysis',
-  'calc-extended': 'simpAnalysis',
-  'piperack-expansion-loop': 'piperack',
-  'engineering-data': 'benchmarks',
-  'ui-proof': 'benchmarks',
-  'reporting': 'reports',
-};
+import { benchmarkLaunchPlan, buildBenchmarkLoadState } from '../benchmarking/benchmarkLaunch.js';
+import { isSimplifiedTabId } from '../config/uiTabs.js';
 
 const catalogItems = [
   {"id": "2D-CANT-001", "title": "Cantilever end load — exact algebra check", "module": "2d-math", "methodId": "CANTILEVER_END_LOAD", "iconId": "cantilever-end-load", "benchmarkFixture": "benchmarks/fixtures/2d/2D-CANT-001.json", "expectedSummary": "unitSystem{...}, moment=120000, stress=6000"},
@@ -49,16 +40,14 @@ const catalogItems = [
   {"id": "RPT-MISSING-PIPE-DATA-001", "title": "Report proof — missing pipe data", "module": "reporting", "methodId": "REPORT_MARKDOWN_CALC_SHEET", "iconId": "report-warning", "benchmarkFixture": "benchmarks/fixtures/reporting/RPT-MISSING-PIPE-DATA-001.json", "expectedSummary": "containsStatus=True, containsMethodId=True, containsFormulaId=True"},
   {"id": "RPT-NOT-QUALIFIED-VENDOR-LOAD-001", "title": "Report proof — vendor loads missing", "module": "reporting", "methodId": "REPORT_MARKDOWN_CALC_SHEET", "iconId": "report-warning", "benchmarkFixture": "benchmarks/fixtures/reporting/RPT-NOT-QUALIFIED-VENDOR-LOAD-001.json", "expectedSummary": "containsStatus=True, containsMethodId=True, containsFormulaId=True"},
   {"id": "RPT-SCREENING-ONLY-001", "title": "Report proof — screening only limitation", "module": "reporting", "methodId": "REPORT_MARKDOWN_CALC_SHEET", "iconId": "report-warning", "benchmarkFixture": "benchmarks/fixtures/reporting/RPT-SCREENING-ONLY-001.json", "expectedSummary": "containsStatus=True, containsMethodId=True, containsFormulaId=True"},
-  {"id": "UI-MOCK-CARDS-001", "title": "UI mock cards metadata proof", "module": "ui-proof", "methodId": "UI_MOCK_CATALOG_PROOF", "iconId": "mock-proof", "benchmarkFixture": "benchmarks/fixtures/ui-proof/UI-MOCK-CARDS-001.json", "expectedSummary": "totalMockCards=34, cardsMissingIcon=0, cardsMissingFixture=0"},
-  {"id": "UI-MOCK-LOAD-001", "title": "UI mock load action metadata proof", "module": "ui-proof", "methodId": "UI_MOCK_CATALOG_PROOF", "iconId": "mock-load", "benchmarkFixture": "benchmarks/fixtures/ui-proof/UI-MOCK-LOAD-001.json", "expectedSummary": "totalMockCards=34, mockLoadFailures=0, activeTabChanged=True"},
+  {"id": "UI-MOCK-CARDS-001", "title": "UI mock cards metadata proof", "module": "ui-proof", "methodId": "UI_MOCK_CATALOG_PROOF", "iconId": "mock-proof", "benchmarkFixture": "benchmarks/fixtures/ui-proof/UI-MOCK-CARDS-001.json", "expectedSummary": "totalMockCards=37, cardsMissingIcon=0, cardsMissingFixture=0"},
+  {"id": "UI-MOCK-LOAD-001", "title": "Benchmark load state transition", "module": "ui-proof", "methodId": "UI_MOCK_CATALOG_PROOF", "iconId": "mock-load", "benchmarkFixture": "benchmarks/fixtures/ui-proof/UI-MOCK-LOAD-001.json", "expectedSummary": "totalMockCards=37, mockLoadFailures=0, routePlanValid=True"},
 ];
 
-export const engineeringMockCatalog = catalogItems.map((item) => ({
-  ...item,
-  loadTargetTab: item.loadTargetTab || targetForModule[item.module] || 'home',
-  benchmarkInput: benchmarkFixtureInputs[item.id] || { benchmarkCaseId: item.id, sourceFixture: item.benchmarkFixture, module: item.module, methodId: item.methodId },
-  latestStatus: latestBenchmarkStatus[item.id] || 'NOT_RUN'
-}));
+export const engineeringMockCatalog = catalogItems.map((item) => {
+  const benchmarkInput = benchmarkFixtureInputs[item.id] || { benchmarkCaseId: item.id, sourceFixture: item.benchmarkFixture, module: item.module, methodId: item.methodId };
+  return { ...item, benchmarkInput, ...benchmarkLaunchPlan({ ...item, benchmarkInput }), latestStatus: latestBenchmarkStatus[item.id] || 'NOT_RUN' };
+});
 
 export const mockGroups = [
   { title: '2D Simplified', match: (item) => item.id.startsWith('2D-') },
@@ -74,7 +63,7 @@ export function validateMockCatalogCompleteness(input = {}) {
   const cardsMissingIcon = cards.filter((item) => !item.iconId).length;
   const cardsMissingFixture = cards.filter((item) => !item.benchmarkFixture).length;
   const cardsMissingMethodId = cards.filter((item) => !item.methodId).length;
-  const cardsMissingLoadTarget = cards.filter((item) => !item.loadTargetTab).length;
+  const cardsMissingLoadTarget = cards.filter((item) => !isSimplifiedTabId(item.loadTargetTab)).length;
   const expectedTotal = input.expectedTotal ?? cards.length;
   const status = cardsMissingIcon + cardsMissingFixture + cardsMissingMethodId + cardsMissingLoadTarget === 0 && cards.length === expectedTotal ? 'PASSED' : 'FAILED';
   return { moduleId: 'ui-proof', methodId: 'UI_MOCK_CATALOG_PROOF', formulaIds: ['UI_MOCK_CATALOG_COMPLETENESS'], status, totalMockCards: cards.length, cardsMissingIcon, cardsMissingFixture, cardsMissingMethodId, cardsMissingLoadTarget };
@@ -82,8 +71,14 @@ export function validateMockCatalogCompleteness(input = {}) {
 
 export function validateMockLoadActions(input = {}) {
   const cards = engineeringMockCatalog;
-  const failures = cards.filter((item) => !item.benchmarkInput || !item.loadTargetTab || !item.id || !item.benchmarkFixture);
-  const expectedTotal = input.expectedTotal ?? cards.length;
-  const ok = failures.length === 0 && cards.length === expectedTotal;
-  return { moduleId: 'ui-proof', methodId: 'UI_MOCK_CATALOG_PROOF', formulaIds: ['UI_MOCK_CATALOG_COMPLETENESS'], status: ok ? 'PASSED' : 'FAILED', totalMockCards: cards.length, mockLoadFailures: failures.length, activeTabChanged: ok, inputLoaded: ok, benchmarkCaseIdVisible: ok, currentInputMarkedAsBenchmarkMock: ok };
+  const failures = cards.filter(item => {
+    try {
+      const loaded = buildBenchmarkLoadState(item);
+      return !isSimplifiedTabId(loaded.activeTab) || loaded.activeTab !== item.loadTargetTab ||
+        loaded.currentBenchmarkMock.id !== item.id || loaded.analysisPayload !== item.benchmarkInput ||
+        loaded.currentBenchmarkMock.isBenchmarkMock !== true;
+    } catch { return true; }
+  });
+  const ok = failures.length === 0 && cards.length === (input.expectedTotal ?? cards.length);
+  return { moduleId: 'ui-proof', methodId: 'UI_MOCK_CATALOG_PROOF', formulaIds: ['UI_MOCK_CATALOG_COMPLETENESS'], status: ok ? 'PASSED' : 'FAILED', totalMockCards: cards.length, mockLoadFailures: failures.length, routePlanValid: ok, inputLoaded: ok, currentInputMarkedAsBenchmarkMock: ok };
 }

@@ -18,7 +18,7 @@ export class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '20px', background: '#7f1d1d', color: '#fca5a5', borderRadius: '8px' }}>
-          <h2>WebGL Context Crash</h2>
+          <h2>Application panel error</h2>
           <p>{this.state.error?.toString()}</p>
           <button onClick={() => window.location.reload()}>Reload Engine</button>
         </div>

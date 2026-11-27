@@ -2,6 +2,21 @@ import { create } from 'zustand';
 import { getSIFData } from './GC3DSIFEngine';
 import { getMaterialProperties } from '../utils/materialUtils';
 import { solveGC3D } from '../solvers/3d/solveGC3D.js';
+import { useAppStore } from '../store/appStore';
+import { publishActiveReportContext } from '../reporting/publishActiveReportContext.js';
+import { build3DSimplifiedModelContract, validate3DSimplifiedModelContract, build3DSimplifiedModelSummary, build3DSimplifiedPropertySummary } from './model/3dSimplifiedModelContract.js';
+import { solve3DSimplifiedSupportLoads } from './solvers/supportLoadSolver.js';
+import { create3DSimplifiedReport } from './reporting/create3DSimplifiedReport.js';
+import { resolvePipeDimensions } from '../core/geometry/pipeSchedules.js';
+import { readFiniteNumber } from '../core/solvers/readFiniteNumber.js';
+
+/** Return SIF data for a valid hollow pipe section in inches. */
+function fittingDataForSegment({ compType, od_in, wt_in }) {
+  if (Number.isFinite(od_in) && Number.isFinite(wt_in) && wt_in > 0 && od_in > 2 * wt_in) {
+    return getSIFData(compType, od_in, wt_in, true, 'LR');
+  }
+  return null;
+}
 
 function finiteOrNull(value) {
   const parsed = Number(value);
@@ -44,6 +59,7 @@ export const useAnalysisStore = create((set, get) => ({
   nodeResults: [],
   criticalNode: null,
   overallResult: null,
+  solverDiagnostics: [],
   debugLog: [],
   logCounter: 0,
   splitCounter: 0,
@@ -83,7 +99,10 @@ export const useAnalysisStore = create((set, get) => ({
     sifMinimum: 1.0,
   },
 
-  setNodes: (nodes) => set({ nodes }),
+  setNodes: (nodes) => {
+    set({ nodes, legResults: [], nodeResults: [], criticalNode: null, overallResult: null, solverDiagnostics: [] });
+    useAppStore.getState().markResultsStale();
+  },
   setSegments: (segments) => { set({ segments }); get().runAnalysis(); },
   setIncludeSIF: (val) => { set({ includeSIF: val }); get().runAnalysis(); },
   setActiveSolver: (solver) => {
@@ -182,13 +201,14 @@ export const useAnalysisStore = create((set, get) => ({
       newSegments[segIdx] = { ...seg, ...updates };
 
       if (updates.od_in !== undefined || updates.wt_in !== undefined) {
-        newFittingData[segId] = getSIFData(
-          seg.compType,
-          newSegments[segIdx].od_in,
-          newSegments[segIdx].wt_in,
-          true,
-          'LR'
-        );
+        const edited = newSegments[segIdx];
+        edited.od_mm = edited.od_in == null ? null : edited.od_in * 25.4;
+        edited.wall_mm = edited.wt_in == null ? null : edited.wt_in * 25.4;
+        edited.pipe = { ...edited.pipe, od_mm: edited.od_mm, wall_mm: edited.wall_mm };
+        edited.pipeSectionSource = 'manual-3d-segment-properties';
+        const data = fittingDataForSegment(edited);
+        if (data) newFittingData[segId] = data;
+        else delete newFittingData[segId];
       }
     });
 
@@ -288,8 +308,11 @@ export const useAnalysisStore = create((set, get) => ({
         newFittingData[seg2.id] = { ...newFittingData[origSeg.id] };
         delete newFittingData[origSeg.id];
     } else {
-        newFittingData[seg1.id] = getSIFData(seg1.compType, seg1.od_in, seg1.wt_in, true, 'LR');
-        newFittingData[seg2.id] = getSIFData(seg2.compType, seg2.od_in, seg2.wt_in, true, 'LR');
+        const data = fittingDataForSegment(origSeg);
+        if (data) {
+          newFittingData[seg1.id] = data;
+          newFittingData[seg2.id] = { ...data };
+        }
     }
 
     set({ nodes: newNodes, segments: newSegments, fittingData: newFittingData, activeTool: 'select', splitCounter: splitCounter + 1 });
@@ -312,19 +335,46 @@ export const useAnalysisStore = create((set, get) => ({
     }));
 
     const result = solveGC3D(payload);
+    const hasGeometry = segments.length > 0 && Object.keys(nodes).length > 0;
+    const model = hasGeometry ? build3DSimplifiedModelContract({ nodes, segments, fittingData, params, source: '3d-analysis-store' }) : null;
+    const validation = model ? validate3DSimplifiedModelContract(model) : null;
+    // A completed stress check still needs a valid model before it can report a pass.
+    const modelBlocksResult = (result.status === 'PASSED' && validation?.status !== 'READY') ||
+        (result.status === 'SCREENING_ONLY' && validation?.status === 'BLOCKED');
+    const status = modelBlocksResult ? 'NOT_QUALIFIED' : result.status;
 
-    const res = result.results || result; // Ensure we look in result.results since GC3D returns contract object
+    const res = result.results;
     set({
         activeSolver: 'GC3D',
         legResults: res.legResults || [],
         nodeResults: res.nodeResults || [],
         criticalNode: res.criticalNode || null,
-        overallResult: res.overallResult || 'FAIL',
+        overallResult: hasGeometry ? status : null,
+        solverDiagnostics: hasGeometry ? result.diagnostics : [],
         debugLog: [...get().debugLog, ...(res.debugLog || [])]
+    });
+    if (!model) {
+      useAppStore.getState().markResultsStale();
+      return;
+    }
+    const supportLoads = solve3DSimplifiedSupportLoads(model);
+    const report = create3DSimplifiedReport({
+      model, supportLoads, validation, gc3dStatus: status, gc3dDiagnostics: result.diagnostics,
+      summary: build3DSimplifiedModelSummary(model), propertySummary: build3DSimplifiedPropertySummary(model),
+    });
+    publishActiveReportContext({
+      title: '3D Simplified Calculation', moduleId: '3d-guided-cantilever',
+      input: { ...payload, model },
+      result: {
+        ...result, status, results: { ...res, overallResult: status },
+        formulaIds: [...new Set([...(result.formulaIds || []), ...report.formulaIds])], report, supportLoads,
+        warnings: [...(result.warnings || []), ...(supportLoads.warnings || [])], diagnostics: report.diagnostics,
+      },
     });
   },
 
-  importFromViewer: (selectedComps, globalParams) => {
+  // PCF points supply nominal bore, while actual OD and wall require project data.
+  importFromViewer: (selectedComps) => {
      const nodes = {}; const segments = []; const fittingData = {};
 
      // Hash function to combine nodes that share the same coordinate (within 1mm tolerance)
@@ -352,8 +402,7 @@ export const useAnalysisStore = create((set, get) => ({
 
         let n1Id, n2Id;
 
-        const od_in = (c.bore || 273.05) / 25.4;
-        const wt_in = 0.322; // approx 8" sch40
+        const section = { dn_mm: readFiniteNumber(c.bore), od_in: null, wt_in: null, pipeSectionSource: 'pcf-section-missing' };
         const materialName = c.attributes?.MATERIAL || get().config.defaultMaterial;
 
         if (c.type === 'ELBOW' || c.type === 'BEND') {
@@ -380,15 +429,13 @@ export const useAnalysisStore = create((set, get) => ({
 
                  segments.push({
                      id: `${c.id}-1`, startNode: n1Id, endNode: centerNodeId, compType: c.type,
-                     axis: getAxis(c.points[0], c.centrePoint), length_in: s1_len, od_in, wt_in, material: materialName
+                     axis: getAxis(c.points[0], c.centrePoint), length_in: s1_len, ...section, material: materialName
                  });
                  segments.push({
                      id: `${c.id}-2`, startNode: centerNodeId, endNode: n2Id, compType: c.type,
-                     axis: getAxis(c.centrePoint, c.points[1]), length_in: s2_len, od_in, wt_in, material: materialName
+                     axis: getAxis(c.centrePoint, c.points[1]), length_in: s2_len, ...section, material: materialName
                  });
 
-                 // Continue, but skip standard segment push
-                 fittingData[c.id] = getSIFData(c.type, od_in, wt_in, true, 'LR');
                  return;
              } else {
                  n1Id = addOrGetNode(c.points[0].x, c.points[0].y, c.points[0].z);
@@ -413,18 +460,15 @@ export const useAnalysisStore = create((set, get) => ({
 
         segments.push({
            id: c.id, startNode: n1Id, endNode: n2Id, compType: c.type,
-           axis, length_in: len_in, od_in, wt_in, material: materialName
+           axis, length_in: len_in, ...section, material: materialName
         });
-
-        // Step 6
-        fittingData[c.id] = getSIFData(c.type, od_in, wt_in, true, 'LR');
      });
 
      // Step 5: Look up material properties for the first encountered segment to set global params
      if (segments.length > 0) {
         const tempC = (get().params.designTemp_F - 32) * 5 / 9;
         const firstSeg = segments[0];
-        const props = getMaterialProperties(firstSeg.material, tempC, firstSeg.od_in * 25.4, firstSeg.wt_in * 25.4);
+        const props = getMaterialProperties(firstSeg.material, tempC, null, null);
         if (props && props.E) {
             const E_psi = parseFloat(props.E) / 0.00689476;
             const alpha_F = parseFloat(props.alpha) / 1.8;
@@ -457,7 +501,7 @@ export const useAnalysisStore = create((set, get) => ({
          delete node.compTypes;
      });
 
-     set({ nodes, segments, fittingData });
+     set({ nodes, segments, fittingData, selectedSegmentIds: new Set(), selectedNodeId: null });
      get().runAnalysis();
   },
 
@@ -549,19 +593,18 @@ export const useAnalysisStore = create((set, get) => ({
 
           const props = seg.properties || {};
 
-          const dn_mm = finiteOrNull(props.dn_mm) ?? finiteOrNull(props.dn) ?? finiteOrNull(props.bore) ?? 100;
-          const nps = textOrEmpty(props.nps);
-          const schedule = textOrEmpty(props.schedule);
-          const wall_mm = finiteOrNull(props.wall_mm) ?? finiteOrNull(props.wt) ?? finiteOrNull(props.wt_mm);
-
-          const od_mm =
-              finiteOrNull(props.od_mm) ??
-              finiteOrNull(props.od) ??
-              finiteOrNull(props.bore) ??
-              dn_mm;
-
-          const od_in = od_mm / 25.4;
-          const wt_in = wall_mm != null ? wall_mm / 25.4 : od_in * 0.065;
+          const dn_mm = readFiniteNumber(props.pipe?.dn_mm ?? props.dn_mm ?? props.dn ?? props.bore);
+          const nps = textOrEmpty(props.pipe?.nps ?? props.nps);
+          const schedule = textOrEmpty(props.pipe?.schedule ?? props.schedule);
+          const suppliedOd = props.pipe?.od_mm ?? props.od_mm ?? props.od;
+          const suppliedWall = props.pipe?.wall_mm ?? props.wall_mm ?? props.wt ?? props.wt_mm;
+          // An explicitly assigned DN and schedule may resolve a complete catalog section.
+          const section = (suppliedOd == null && suppliedWall == null && dn_mm > 0 && schedule)
+              ? resolvePipeDimensions(dn_mm, schedule) : null;
+          const od_mm = section?.isQualified ? section.od : readFiniteNumber(suppliedOd);
+          const wall_mm = section?.isQualified ? section.wt : readFiniteNumber(suppliedWall);
+          const od_in = od_mm == null ? null : od_mm / 25.4;
+          const wt_in = wall_mm == null ? null : wall_mm / 25.4;
 
           const material = textOrEmpty(props.material) || get().config.defaultMaterial;
           const materialDensity_kg_m3 = finiteOrNull(props.materialDensity_kg_m3);
@@ -648,6 +691,7 @@ export const useAnalysisStore = create((set, get) => ({
               lineClass: props.lineClass || null,
 
               propertySource: props.propertySource || 'sketcher-segment-properties',
+              pipeSectionSource: section?.isQualified ? section.source : 'sketcher-segment-properties',
               masterDbRowId,
               masterDbVersion,
               masterDbProvenance,
@@ -655,7 +699,8 @@ export const useAnalysisStore = create((set, get) => ({
           };
 
           segments.push(gcSeg);
-          fittingData[gcSeg.id] = getSIFData(compType, od_in, wt_in, true, 'LR');
+          const data = fittingDataForSegment(gcSeg);
+          if (data) fittingData[gcSeg.id] = data;
       });
 
       // Auto-classify terminal nodes (1 connection) as anchors if not already set

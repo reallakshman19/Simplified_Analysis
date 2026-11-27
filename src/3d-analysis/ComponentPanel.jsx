@@ -11,6 +11,7 @@ const Field = ({ label, value, unit }) => (
   </div>
 );
 
+/** Edit project pipe dimensions in inches for the active segment selection. */
 export const ComponentPanel = () => {
   const selectedSegmentIds = useAnalysisStore(s => s.selectedSegmentIds);
   const segments = useAnalysisStore(s => s.segments);
@@ -31,12 +32,10 @@ export const ComponentPanel = () => {
       const { name, value } = e.target;
       let val = value;
       if (name === 'od_in' || name === 'wt_in') {
-        val = parseFloat(value);
-        if (isNaN(val)) return;
+        if (e.target.validity.badInput) return;
+        val = value === '' ? null : Number(value);
       }
-      selectedSegmentIds.forEach(id => {
-        updateSegmentProperty(id, { [name]: val });
-      });
+      updateSegmentProperty([...selectedSegmentIds], { [name]: val });
     };
 
     const inputStyle = {
@@ -101,17 +100,17 @@ export const ComponentPanel = () => {
           </div>
 
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '12px', color: '#94a3b8' }}>Outside Diameter (in)</label>
-            <input type="number" step="0.1" name="od_in" value={firstSeg.od_in || ''} onChange={handleChange} style={inputStyle} />
+            <label htmlFor="gc3d-segment-od" style={{ fontSize: '12px', color: '#94a3b8' }}>Outside Diameter (in)</label>
+            <input id="gc3d-segment-od" type="number" step="any" name="od_in" value={firstSeg.od_in ?? ''} onChange={handleChange} style={inputStyle} />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', color: '#94a3b8' }}>Wall Thickness (in)</label>
-            <input type="number" step="0.01" name="wt_in" value={firstSeg.wt_in || ''} onChange={handleChange} style={inputStyle} />
+            <label htmlFor="gc3d-segment-wall" style={{ fontSize: '12px', color: '#94a3b8' }}>Wall Thickness (in)</label>
+            <input id="gc3d-segment-wall" type="number" step="any" name="wt_in" value={firstSeg.wt_in ?? ''} onChange={handleChange} style={inputStyle} />
           </div>
 
           {(() => {
-            if (firstSeg.od_in && firstSeg.wt_in) {
+            if (firstSeg.wt_in > 0 && firstSeg.od_in > 2 * firstSeg.wt_in) {
               const d_i = firstSeg.od_in - 2 * firstSeg.wt_in;
               const i = (Math.PI / 64) * (Math.pow(firstSeg.od_in, 4) - Math.pow(d_i, 4));
               const z = i / (firstSeg.od_in / 2);

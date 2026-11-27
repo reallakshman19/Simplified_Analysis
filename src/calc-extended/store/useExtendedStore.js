@@ -59,6 +59,7 @@ const initialState = {
   results: null,
   importDiagnostics: [],
   importSummary: null,
+  importedCanonicalGeometry: null,
 };
 
 export const useExtendedStore = create((set) => ({
@@ -66,7 +67,7 @@ export const useExtendedStore = create((set) => ({
 
   setMethodology: (method) => set({ methodology: method }),
   setActiveSubTab: (tab) => set({ activeSubTab: tab }),
-  toggleUnitSystem: (unit) => set({ unitSystem: unit }),
+  toggleUnitSystem: (unit) => useAppStore.getState().setEngineeringDefault('projectUnitSystem', String(unit).toLowerCase()),
   setActiveView: (view) => set({ activeView: view }),
   setHeatmapMode: (mode) => set({ heatmapMode: mode }),
 
@@ -92,11 +93,14 @@ export const useExtendedStore = create((set) => ({
     const nodesClone = JSON.parse(JSON.stringify(extendedPayload.nodes || []));
     const segmentsClone = JSON.parse(JSON.stringify(extendedPayload.segments || []));
 
+    const marked = nodesClone.filter(node => node.restraint === 'ANCHOR');
+    const anchors = marked.length === 2 ? { anchor1: marked[0].id, anchor2: marked[1].id } : { anchor1: null, anchor2: null };
     return {
+      importedCanonicalGeometry: canonicalGeometry,
       nodes: nodesClone,
       segments: segmentsClone,
-      anchors: { anchor1: null, anchor2: null },
-      calculationStatus: nodesClone.length >= 2 && segmentsClone.length > 0 ? 'AWAITING_ANCHORS' : 'AWAITING_GEOMETRY',
+      anchors,
+      calculationStatus: nodesClone.length >= 2 && segmentsClone.length > 0 ? (anchors.anchor1 && anchors.anchor2 ? 'READY' : 'AWAITING_ANCHORS') : 'AWAITING_GEOMETRY',
       results: null,
       importDiagnostics: extendedPayload.diagnostics || [],
       importSummary: extendedPayload.summary || null,
@@ -170,14 +174,14 @@ export const useExtendedStore = create((set) => ({
   // Anchor Assignment
   setAnchor: (anchorNum, nodeId) => set((state) => {
     const newAnchors = { ...state.anchors, [`anchor${anchorNum}`]: nodeId };
-    const status = (newAnchors.anchor1 && newAnchors.anchor2) ? 'READY' : 'AWAITING_ANCHORS';
+    const status = newAnchors.anchor1 && newAnchors.anchor2 && newAnchors.anchor1 !== newAnchors.anchor2 && state.nodes.some(n => n.id === newAnchors.anchor1) && state.nodes.some(n => n.id === newAnchors.anchor2) ? 'READY' : 'AWAITING_ANCHORS';
     return { anchors: newAnchors, calculationStatus: status };
   }),
 
   // Set Results from Solver
   setResults: (results) => set({
     results,
-    calculationStatus: 'CALCULATED'
+    calculationStatus: results ? 'CALCULATED' : 'AWAITING_ANCHORS'
   }),
 
   // Inject Golden Master mock data
@@ -196,3 +200,18 @@ export const useExtendedStore = create((set) => ({
   // Reset module
   reset: () => set(initialState)
 }));
+
+// Invalidate only on calculation inputs, not on navigation or rendering.
+useExtendedStore.subscribe((state, previous) => {
+  if (['nodes', 'segments', 'anchors', 'inputs', 'vessel', 'constraints', 'boundaryMovement', 'methodology'].some(key => state[key] !== previous[key])) {
+    useAppStore.getState().markResultsStale();
+    if (state.results) useExtendedStore.setState({ results: null, calculationStatus: state.anchors.anchor1 && state.anchors.anchor2 && state.anchors.anchor1 !== state.anchors.anchor2 ? 'READY' : 'AWAITING_ANCHORS' });
+  }
+});
+
+useAppStore.subscribe((state, previous) => {
+  if (state.engineeringDefaults !== previous.engineeringDefaults && useExtendedStore.getState().results) {
+    const { anchors } = useExtendedStore.getState();
+    useExtendedStore.setState({ results: null, calculationStatus: anchors.anchor1 && anchors.anchor2 && anchors.anchor1 !== anchors.anchor2 ? 'READY' : 'AWAITING_ANCHORS' });
+  }
+});

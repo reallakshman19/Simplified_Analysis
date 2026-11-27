@@ -1,11 +1,12 @@
+import { useAppStore } from '../store/appStore';
 import React from 'react';
 import { useAnalysisStore } from './AnalysisStore';
 
 export const ConfigPanel = () => {
   const params = useAnalysisStore(s => s.params);
   const setParams = useAnalysisStore(s => s.setParams);
-  const unitSystem = useAnalysisStore(s => s.unitSystem);
-  const setUnitSystem = useAnalysisStore(s => s.setUnitSystem);
+  const unitSystem = useAppStore(s => s.engineeringDefaults.projectUnitSystem === 'metric' ? 'si' : 'imperial');
+  const setUnitSystem = sys => useAppStore.getState().setEngineeringDefault('projectUnitSystem', sys === 'si' ? 'metric' : 'imperial');
 
   const isSI = unitSystem === 'si';
 
